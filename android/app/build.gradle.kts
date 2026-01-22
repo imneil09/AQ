@@ -1,6 +1,6 @@
 plugins {
     id("com.android.application")
-    id("com.google.gms.google-services")
+    id("com.google.gms.google-services") // Keep this for Firebase
     id("kotlin-android")
     id("dev.flutter.flutter-gradle-plugin")
 }
@@ -8,7 +8,9 @@ plugins {
 android {
     namespace = "com.example.appointmentqueue"
     compileSdk = flutter.compileSdkVersion
-    ndkVersion = flutter.ndkVersion
+
+    // FIX 1: Set the specific NDK version required by the plugins
+    ndkVersion = "27.0.12077973"
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
@@ -22,9 +24,10 @@ android {
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "com.example.appointmentqueue"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = flutter.minSdkVersion
+
+        // FIX 2: Increase minSdk to 23 to support Firebase Firestore
+        minSdk = 23
+
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
@@ -38,6 +41,7 @@ android {
         }
     }
 }
+
 dependencies {
     // Import the Firebase BoM
     implementation(platform("com.google.firebase:firebase-bom:34.8.0"))
