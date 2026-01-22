@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "690871649921",
+    "project_id": "appointmentqueue-6ebf3",
+    "storage_bucket": "appointmentqueue-6ebf3.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:690871649921:android:7ad5e20dc3cb88c3ca6f80",
+        "android_client_info": {
+          "package_name": "com.example.appointmentqueue"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAsedm1SEM4ZGfkqdBcCDR5ycqRIICfzSo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
