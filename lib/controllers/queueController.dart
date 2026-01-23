@@ -9,10 +9,10 @@ class QueueController extends ChangeNotifier {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
-  // Configuration
-  final double storeLat = 23.8315;
-  final double storeLng = 91.2868;
-  final double maxJoinRadiusKm = 5.0;
+  // Configuration for Dr. Tudu Clinic (Indranagar, Agartala)
+  final double storeLat = 23.8711; // UPDATED: Indranagar Lat
+  final double storeLng = 91.3072; // UPDATED: Indranagar Lng
+  final double maxJoinRadiusKm = 5.0; // 5km Radius allowed
 
   List<Appointment> _allAppointments = [];
   StreamSubscription? _queueSubscription;
@@ -82,7 +82,7 @@ class QueueController extends ChangeNotifier {
   Future<void> joinQueueNow(String name, String phone, String service) async {
     bool isNearby = await _checkLocation();
     if (!isNearby) {
-      throw Exception("You are too far away! Please come closer to the store.");
+      throw Exception("You are too far from the clinic! Please join when closer to Indranagar.");
     }
     String? uid = _auth.currentUser?.uid;
     await _addAppointment(name, phone, service, DateTime.now(), docId: uid);
@@ -96,7 +96,6 @@ class QueueController extends ChangeNotifier {
   // --- ADMIN Actions (Bypass Geo & ID) ---
 
   Future<void> adminAddWalkIn(String name, String phone, String service) async {
-    // Pass null for docId so Firestore generates a unique ID
     await _addAppointment(name, phone, service, DateTime.now(), docId: null);
   }
 
@@ -108,7 +107,7 @@ class QueueController extends ChangeNotifier {
 
   Future<void> _addAppointment(String name, String phone, String service, DateTime time, {String? docId}) async {
     final newAppt = Appointment(
-      id: docId ?? '', // If null, ID is assigned by Firestore/ignored here
+      id: docId ?? '',
       customerName: name,
       phoneNumber: phone,
       serviceType: service,
@@ -119,7 +118,6 @@ class QueueController extends ChangeNotifier {
       await _db.collection('appointments').doc(docId).set(newAppt.toMap());
       currentCustomerId = docId;
     } else {
-      // Auto-ID generation for Admins/Walk-ins
       await _db.collection('appointments').add(newAppt.toMap());
     }
   }
@@ -167,7 +165,7 @@ class QueueController extends ChangeNotifier {
       double distanceInMeters = Geolocator.distanceBetween(storeLat, storeLng, position.latitude, position.longitude);
       return (distanceInMeters / 1000) <= maxJoinRadiusKm;
     } catch (e) {
-      return false;
+      return false; // If location fails, block joining for safety or set to true for testing
     }
   }
 

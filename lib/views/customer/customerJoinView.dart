@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../controllers/queueController.dart';
 
+// FIX: Ensure class name is PascalCase (Capital C, Capital J, Capital V)
 class CustomerJoinView extends StatefulWidget {
   final bool isBooking;
   const CustomerJoinView({super.key, required this.isBooking});
@@ -17,6 +18,15 @@ class _CustomerJoinViewState extends State<CustomerJoinView> {
   DateTime? _selectedDate;
   bool _isLoading = false;
 
+  // Added service selection for Dr. Tudu
+  String _selectedService = 'New Consultation';
+  final List<String> _serviceOptions = [
+    'New Consultation',
+    'Follow-up / Review',
+    'Fracture / Trauma',
+    'Reports Collection',
+  ];
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -30,7 +40,7 @@ class _CustomerJoinViewState extends State<CustomerJoinView> {
             children: [
               TextFormField(
                 controller: _nameController,
-                decoration: const InputDecoration(labelText: "Your Name", prefixIcon: Icon(Icons.person)),
+                decoration: const InputDecoration(labelText: "Patient Name", prefixIcon: Icon(Icons.person)),
                 validator: (v) => v!.isEmpty ? "Required" : null,
               ),
               const SizedBox(height: 16),
@@ -40,6 +50,15 @@ class _CustomerJoinViewState extends State<CustomerJoinView> {
                 decoration: const InputDecoration(labelText: "Phone Number", prefixIcon: Icon(Icons.phone)),
                 validator: (v) => v!.isEmpty ? "Required" : null,
               ),
+              const SizedBox(height: 16),
+
+              DropdownButtonFormField<String>(
+                value: _selectedService,
+                decoration: const InputDecoration(labelText: "Reason", prefixIcon: Icon(Icons.medical_services)),
+                items: _serviceOptions.map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
+                onChanged: (val) => setState(() => _selectedService = val!),
+              ),
+
               const SizedBox(height: 16),
               if (widget.isBooking)
                 ListTile(
@@ -82,10 +101,9 @@ class _CustomerJoinViewState extends State<CustomerJoinView> {
 
     try {
       if (widget.isBooking) {
-        await ctrl.bookFutureAppointment(_nameController.text, _phoneController.text, "General", _selectedDate!);
+        await ctrl.bookFutureAppointment(_nameController.text, _phoneController.text, _selectedService, _selectedDate!);
       } else {
-        // This triggers the Geo-Check inside the controller
-        await ctrl.joinQueueNow(_nameController.text, _phoneController.text, "Walk-in");
+        await ctrl.joinQueueNow(_nameController.text, _phoneController.text, _selectedService);
       }
       if (mounted) Navigator.pop(context);
     } catch (e) {

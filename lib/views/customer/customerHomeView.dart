@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../controllers/queueController.dart';
 import '../../models/appoinmentModel.dart';
-import 'customerJoinView.dart';
+import 'customerJoinView.dart'; // Ensure filename matches this EXACTLY
 
 class CustomerHomeView extends StatelessWidget {
   const CustomerHomeView({super.key});
@@ -14,7 +14,16 @@ class CustomerHomeView extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FE),
-      appBar: AppBar(title: const Text("QueuePro", style: TextStyle(fontWeight: FontWeight.bold))),
+      appBar: AppBar(
+        title: const Text("QueuePro", style: TextStyle(fontWeight: FontWeight.bold)),
+        actions: [
+          // Logout button just in case you need it
+          IconButton(
+            icon: const Icon(Icons.logout, color: Colors.red),
+            onPressed: () {},
+          )
+        ],
+      ),
       body: Padding(
         padding: const EdgeInsets.all(24.0),
         child: Column(
@@ -34,7 +43,9 @@ class CustomerHomeView extends StatelessWidget {
                 elevation: 0,
                 color: Colors.white,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                child: ListView.separated(
+                child: controller.waitingQueue.isEmpty
+                    ? const Center(child: Text("Queue is empty"))
+                    : ListView.separated(
                   padding: const EdgeInsets.all(12),
                   itemCount: controller.waitingQueue.length,
                   separatorBuilder: (_,__) => const Divider(height: 1),
@@ -46,7 +57,7 @@ class CustomerHomeView extends StatelessWidget {
                         backgroundColor: isMe ? const Color(0xFF2E3192) : Colors.grey[200],
                         child: Text("${index + 1}", style: TextStyle(color: isMe ? Colors.white : Colors.black)),
                       ),
-                      title: Text(isMe ? "YOU" : "Customer #${index+1}", style: TextStyle(fontWeight: isMe ? FontWeight.bold : FontWeight.normal)),
+                      title: Text(isMe ? "YOU" : appt.customerName, style: TextStyle(fontWeight: isMe ? FontWeight.bold : FontWeight.normal)),
                       subtitle: Text("Est. Service: ${10 + (index * 15)} mins"),
                     );
                   },
@@ -110,7 +121,6 @@ class CustomerHomeView extends StatelessWidget {
     );
   }
 
-  // _buildJoinOptions is same as provided in your file
   Widget _buildJoinOptions(BuildContext context) {
     return Row(
       children: [
@@ -123,6 +133,7 @@ class CustomerHomeView extends StatelessWidget {
 
   Widget _btn(BuildContext context, String title, IconData icon, bool booking) {
     return GestureDetector(
+      // FIX: Ensure 'CustomerJoinView' matches the class name exactly
       onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => CustomerJoinView(isBooking: booking))),
       child: Container(
         height: 120,
