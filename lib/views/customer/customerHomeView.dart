@@ -1,152 +1,164 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../../controllers/queueController.dart';
 import '../../models/appoinmentModel.dart';
-import 'customerJoinView.dart'; // Ensure filename matches this EXACTLY
+import 'customerJoinView.dart';
+import '../authView.dart';
 
-class CustomerHomeView extends StatelessWidget {
+class CustomerHomeView extends StatefulWidget {
   const CustomerHomeView({super.key});
+  @override
+  State<CustomerHomeView> createState() => _CustomerHomeViewState();
+}
+
+class _CustomerHomeViewState extends State<CustomerHomeView> {
+  Future<void> _logout() async {
+    await FirebaseAuth.instance.signOut();
+    if (mounted) Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (_) => const AuthView()), (route) => false);
+  }
 
   @override
   Widget build(BuildContext context) {
-    final controller = Provider.of<QueueController>(context);
-    final myAppt = controller.myAppointment;
+    final queue = Provider.of<QueueController>(context);
+    final myAppt = queue.myAppointment;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FE),
       appBar: AppBar(
-        title: const Text("QueuePro", style: TextStyle(fontWeight: FontWeight.bold)),
-        actions: [
-          // Logout button just in case you need it
-          IconButton(
-            icon: const Icon(Icons.logout, color: Colors.red),
-            onPressed: () {},
-          )
-        ],
+        title: const Text("My Visits"),
+        actions: [IconButton(icon: const Icon(Icons.logout_rounded, color: Color(0xFFEF4444)), onPressed: _logout)],
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          children: [
-            if (myAppt == null)
-              _buildJoinOptions(context)
-            else
-              _buildRadarTicket(context, myAppt, controller),
-
-            const SizedBox(height: 30),
-
-            const Align(alignment: Alignment.centerLeft, child: Text("Live Status", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold))),
-            const SizedBox(height: 10),
-
-            Expanded(
-              child: Card(
-                elevation: 0,
-                color: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                child: controller.waitingQueue.isEmpty
-                    ? const Center(child: Text("Queue is empty"))
-                    : ListView.separated(
-                  padding: const EdgeInsets.all(12),
-                  itemCount: controller.waitingQueue.length,
-                  separatorBuilder: (_,__) => const Divider(height: 1),
-                  itemBuilder: (context, index) {
-                    final appt = controller.waitingQueue[index];
-                    final isMe = appt.id == controller.currentCustomerId;
-                    return ListTile(
-                      leading: CircleAvatar(
-                        backgroundColor: isMe ? const Color(0xFF2E3192) : Colors.grey[200],
-                        child: Text("${index + 1}", style: TextStyle(color: isMe ? Colors.white : Colors.black)),
-                      ),
-                      title: Text(isMe ? "YOU" : appt.customerName, style: TextStyle(fontWeight: isMe ? FontWeight.bold : FontWeight.normal)),
-                      subtitle: Text("Est. Service: ${10 + (index * 15)} mins"),
-                    );
-                  },
-                ),
-              ),
-            )
-          ],
-        ),
-      ),
+      body: myAppt == null ? _buildEmptyState() : _buildTicketState(myAppt, queue),
     );
   }
 
-  Widget _buildRadarTicket(BuildContext context, Appointment appt, QueueController controller) {
-    if (appt.status == AppointmentStatus.skipped) {
-      return Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(color: Colors.red[50], borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.red)),
-        child: Row(children: [
-          const Icon(Icons.warning, color: Colors.red, size: 30),
-          const SizedBox(width: 15),
-          const Expanded(child: Text("You were skipped! Please speak to the receptionist to be recalled.", style: TextStyle(color: Colors.red)))
+  Widget _buildEmptyState() {
+    return Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+      Container(
+        padding: const EdgeInsets.all(30),
+        decoration: BoxDecoration(color: Colors.white, shape: BoxShape.circle, boxShadow: [BoxShadow(color: Colors.grey.withOpacity(0.1), blurRadius: 20)]),
+        child: const Icon(Icons.calendar_month_rounded, size: 60, color: Color(0xFF94A3B8)),
+      ),
+      const SizedBox(height: 24),
+      const Text("No Active Visits", style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+      const SizedBox(height: 8),
+      const Text("Join the queue or book for later", style: TextStyle(color: Color(0xFF64748B))),
+      const SizedBox(height: 40),
+
+      // Action Buttons
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 40),
+        child: Column(children: [
+          _actionBtn("Join Live Queue", "I am near the clinic", Icons.flash_on_rounded, Colors.white, const Color(0xFF2563EB), () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CustomerJoinView(isBooking: false)))),
+          const SizedBox(height: 16),
+          _actionBtn("Book Appointment", "Schedule for a future date", Icons.event_rounded, const Color(0xFFEFF6FF), const Color(0xFF1E3A8A), () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CustomerJoinView(isBooking: true)))),
         ]),
-      );
-    }
-
-    int myIndex = controller.waitingQueue.indexWhere((a) => a.id == appt.id);
-    bool isNext = myIndex == 0;
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(colors: [Color(0xFF2E3192), Color(0xFF00D4FF)], begin: Alignment.topLeft, end: Alignment.bottomRight),
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [BoxShadow(color: const Color(0xFF2E3192).withOpacity(0.3), blurRadius: 20, offset: const Offset(0, 10))],
-      ),
-      child: Column(
-        children: [
-          Text(isNext ? "YOU ARE NEXT!" : "YOU ARE #${myIndex + 1}",
-              style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w900, letterSpacing: 1)),
-          const SizedBox(height: 10),
-          Text(controller.getEstimatedWaitTime(appt),
-              style: const TextStyle(color: Colors.white, fontSize: 40, fontWeight: FontWeight.bold)),
-          const Text("Estimated Wait Time", style: TextStyle(color: Colors.white70)),
-          const SizedBox(height: 20),
-          if (myIndex < 3 && myIndex >= 0)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(20)),
-              child: const Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.directions_walk, color: Colors.white, size: 16),
-                  SizedBox(width: 5),
-                  Text("Stay close to the store", style: TextStyle(color: Colors.white, fontSize: 12)),
-                ],
-              ),
-            )
-        ],
-      ),
-    );
+      )
+    ]));
   }
 
-  Widget _buildJoinOptions(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(child: _btn(context, "Join Queue", Icons.flash_on, false)),
-        const SizedBox(width: 16),
-        Expanded(child: _btn(context, "Book Later", Icons.calendar_today, true)),
-      ],
-    );
-  }
-
-  Widget _btn(BuildContext context, String title, IconData icon, bool booking) {
+  Widget _actionBtn(String title, String subtitle, IconData icon, Color bgColor, Color textColor, VoidCallback onTap) {
     return GestureDetector(
-      // FIX: Ensure 'CustomerJoinView' matches the class name exactly
-      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => CustomerJoinView(isBooking: booking))),
+      onTap: onTap,
       child: Container(
-        height: 120,
-        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), boxShadow: [BoxShadow(color: Colors.grey.withOpacity(0.1), blurRadius: 10)]),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: 30, color: const Color(0xFF2E3192)),
-            const SizedBox(height: 10),
-            Text(title, style: const TextStyle(fontWeight: FontWeight.bold))
-          ],
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+            color: bgColor,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: textColor.withOpacity(0.1)),
+            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4))]
         ),
+        child: Row(children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(color: textColor.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
+            child: Icon(icon, color: textColor),
+          ),
+          const SizedBox(width: 16),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(title, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: textColor)),
+            Text(subtitle, style: TextStyle(fontSize: 12, color: textColor.withOpacity(0.7))),
+          ])),
+          Icon(Icons.arrow_forward_ios_rounded, size: 16, color: textColor.withOpacity(0.5))
+        ]),
       ),
     );
+  }
+
+  Widget _buildTicketState(Appointment appt, QueueController queue) {
+    bool isWaiting = appt.status == AppointmentStatus.waiting;
+    bool isSkipped = appt.status == AppointmentStatus.skipped;
+    Color statusColor = isSkipped ? const Color(0xFFEF4444) : (isWaiting ? const Color(0xFF2563EB) : const Color(0xFF10B981));
+    String statusText = isSkipped ? "SKIPPED" : (isWaiting ? "IN QUEUE" : "YOUR TURN");
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24),
+      child: Column(children: [
+        // Ticket Card
+        Container(
+          width: double.infinity,
+          decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(30),
+              boxShadow: [BoxShadow(color: const Color(0xFF2563EB).withOpacity(0.1), blurRadius: 40, offset: const Offset(0, 20))]
+          ),
+          child: Column(children: [
+            // Header
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: statusColor,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
+              ),
+              child: Row(children: [
+                Icon(isSkipped ? Icons.warning_rounded : Icons.confirmation_number_rounded, color: Colors.white),
+                const SizedBox(width: 12),
+                Text(statusText, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
+                const Spacer(),
+                Text("#${appt.id.substring(0, 4).toUpperCase()}", style: TextStyle(color: Colors.white.withOpacity(0.8), fontWeight: FontWeight.bold))
+              ]),
+            ),
+
+            // Body
+            Padding(
+              padding: const EdgeInsets.all(32),
+              child: Column(children: [
+                const Text("ESTIMATED WAIT", style: TextStyle(color: Color(0xFF64748B), fontSize: 12, letterSpacing: 1.5, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 8),
+                Text(
+                    queue.getEstimatedWaitTime(appt),
+                    style: TextStyle(fontSize: 48, fontWeight: FontWeight.w900, color: statusColor, height: 1.0)
+                ),
+                const SizedBox(height: 32),
+                const Divider(),
+                const SizedBox(height: 32),
+                _infoRow("PATIENT", appt.customerName),
+                const SizedBox(height: 20),
+                _infoRow("SERVICE", appt.serviceType),
+                if(isSkipped) ...[
+                  const SizedBox(height: 32),
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(color: const Color(0xFFFEF2F2), borderRadius: BorderRadius.circular(16), border: Border.all(color: const Color(0xFFFEE2E2))),
+                    child: Row(children: [
+                      const Icon(Icons.info_rounded, color: Color(0xFFEF4444)),
+                      const SizedBox(width: 12),
+                      const Expanded(child: Text("You missed your turn. Please see the receptionist.", style: TextStyle(color: Color(0xFFB91C1C), fontSize: 13, fontWeight: FontWeight.w600)))
+                    ]),
+                  )
+                ]
+              ]),
+            )
+          ]),
+        ),
+      ]),
+    );
+  }
+
+  Widget _infoRow(String label, String value) {
+    return Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+      Text(label, style: const TextStyle(color: Color(0xFF94A3B8), fontWeight: FontWeight.w600, fontSize: 13)),
+      Text(value, style: const TextStyle(color: Color(0xFF0F172A), fontWeight: FontWeight.bold, fontSize: 16)),
+    ]);
   }
 }

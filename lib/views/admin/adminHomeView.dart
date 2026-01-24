@@ -4,7 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../../controllers/queueController.dart';
 import '../../models/appoinmentModel.dart';
 import 'adminAddView.dart';
-import '../authView.dart'; // Required for Logout navigation
+import '../authView.dart';
 
 class AdminHomeView extends StatefulWidget {
   const AdminHomeView({super.key});
@@ -22,13 +22,12 @@ class _AdminHomeViewState extends State<AdminHomeView> with SingleTickerProvider
     _tabController = TabController(length: 3, vsync: this);
   }
 
-  // --- LOGOUT FUNCTION ---
   Future<void> _logout() async {
     await FirebaseAuth.instance.signOut();
     if (mounted) {
       Navigator.pushAndRemoveUntil(
         context,
-        MaterialPageRoute(builder: (context) => const AuthView()),
+        MaterialPageRoute(builder: (_) => const AuthView()),
             (route) => false,
       );
     }
@@ -39,105 +38,174 @@ class _AdminHomeViewState extends State<AdminHomeView> with SingleTickerProvider
     final queue = Provider.of<QueueController>(context);
 
     return Scaffold(
+      backgroundColor: const Color(0xFFF3F6F9),
       appBar: AppBar(
-        title: const Text("Dr. Tudu Dashboard"),
+        title: const Text("Dr. Tudu Dashboard", style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
         backgroundColor: Colors.white,
         elevation: 0,
         actions: [
-          // LOGOUT BUTTON
           IconButton(
-            icon: const Icon(Icons.logout, color: Colors.red),
+            icon: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(color: const Color(0xFFFEF2F2), borderRadius: BorderRadius.circular(8)),
+              child: const Icon(Icons.power_settings_new_rounded, color: Color(0xFFEF4444), size: 20),
+            ),
             onPressed: _logout,
-            tooltip: "Logout",
           )
         ],
-        bottom: TabBar(
-          controller: _tabController,
-          labelColor: const Color(0xFF0055AA),
-          unselectedLabelColor: Colors.grey,
-          indicatorColor: const Color(0xFF0055AA),
-          tabs: [
-            Tab(text: "Waiting (${queue.waitingQueue.length})"),
-            Tab(text: "Active (${queue.activeQueue.length})"),
-            Tab(text: "Skipped (${queue.skippedList.length})"),
-          ],
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(60),
+          child: Container(
+            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(16)),
+            child: TabBar(
+              controller: _tabController,
+              indicator: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4)]),
+              labelColor: const Color(0xFF2563EB),
+              unselectedLabelColor: const Color(0xFF64748B),
+              labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+              dividerColor: Colors.transparent,
+              tabs: [
+                Tab(text: "WAITING (${queue.waitingQueue.length})"),
+                Tab(text: "ACTIVE (${queue.activeQueue.length})"),
+                Tab(text: "SKIPPED (${queue.skippedList.length})"),
+              ],
+            ),
+          ),
         ),
       ),
       body: TabBarView(
         controller: _tabController,
         children: [
-          // Tab 1: Waiting Queue
-          _buildAppointmentList(queue.waitingQueue, isWaiting: true),
-
-          // Tab 2: Active (In Cabin)
-          _buildAppointmentList(queue.activeQueue, isActive: true),
-
-          // Tab 3: Skipped (Recall)
-          _buildAppointmentList(queue.skippedList, isSkipped: true),
+          _buildList(queue.waitingQueue, isWaiting: true),
+          _buildList(queue.activeQueue, isActive: true),
+          _buildList(queue.skippedList, isSkipped: true),
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AdminAddView())),
-        label: const Text("Add Patient"),
-        icon: const Icon(Icons.add),
-        backgroundColor: const Color(0xFF0055AA),
+        label: const Text("ADD PATIENT", style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1)),
+        icon: const Icon(Icons.add_rounded),
+        backgroundColor: const Color(0xFF2563EB),
+        elevation: 4,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
     );
   }
 
-  Widget _buildAppointmentList(List<Appointment> list, {bool isWaiting = false, bool isSkipped = false, bool isActive = false}) {
+  Widget _buildList(List<Appointment> list, {bool isWaiting = false, bool isSkipped = false, bool isActive = false}) {
     if (list.isEmpty) {
-      return const Center(child: Text("No patients in this list", style: TextStyle(color: Colors.grey)));
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.inbox_rounded, size: 64, color: Colors.grey[300]),
+            const SizedBox(height: 16),
+            Text("No patients in this list", style: TextStyle(color: Colors.grey[400], fontWeight: FontWeight.bold)),
+          ],
+        ),
+      );
     }
 
     return ListView.builder(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(16),
       itemCount: list.length,
       itemBuilder: (context, index) {
         final appt = list[index];
-        return Card(
-          elevation: 2,
+        return Container(
           margin: const EdgeInsets.only(bottom: 12),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          child: ListTile(
-            leading: CircleAvatar(
-              backgroundColor: isSkipped ? Colors.orange.withOpacity(0.1) : const Color(0xFF0055AA).withOpacity(0.1),
-              child: Text(
-                "${index + 1}",
-                style: TextStyle(color: isSkipped ? Colors.orange : const Color(0xFF0055AA), fontWeight: FontWeight.bold),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [BoxShadow(color: const Color(0xFF0F172A).withOpacity(0.04), blurRadius: 10, offset: const Offset(0, 4))],
+            border: Border.all(color: Colors.grey.withOpacity(0.1)),
+          ),
+          child: Column(
+            children: [
+              ListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                leading: Container(
+                  width: 40, height: 40,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: isSkipped ? const Color(0xFFFEF2F2) : const Color(0xFFEFF6FF),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Text(
+                    "${index + 1}",
+                    style: TextStyle(fontWeight: FontWeight.bold, color: isSkipped ? const Color(0xFFEF4444) : const Color(0xFF2563EB)),
+                  ),
+                ),
+                title: Text(appt.customerName, style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+                subtitle: Text("${appt.serviceType} • ${appt.phoneNumber}", style: const TextStyle(color: Color(0xFF64748B), fontSize: 13)),
               ),
-            ),
-            title: Text(appt.customerName, style: const TextStyle(fontWeight: FontWeight.bold)),
-            subtitle: Text("${appt.serviceType} • ${appt.phoneNumber}"),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (isWaiting && index == 0) // Only show 'Call' for first in line
-                  IconButton(
-                    icon: const Icon(Icons.notifications_active, color: Colors.green),
-                    onPressed: () => Provider.of<QueueController>(context, listen: false).updateStatus(appt.id, AppointmentStatus.inProgress),
-                  ),
-                if (isWaiting || isActive)
-                  IconButton(
-                    icon: const Icon(Icons.skip_next, color: Colors.orange),
-                    onPressed: () => Provider.of<QueueController>(context, listen: false).skipAppointment(appt.id),
-                  ),
-                if (isWaiting || isActive) // Complete Button
-                  IconButton(
-                    icon: const Icon(Icons.check_circle, color: Colors.blue),
-                    onPressed: () => Provider.of<QueueController>(context, listen: false).updateStatus(appt.id, AppointmentStatus.completed),
-                  ),
-                if (isSkipped)
-                  ElevatedButton(
-                    onPressed: () => Provider.of<QueueController>(context, listen: false).recallAppointment(appt.id),
-                    style: ElevatedButton.styleFrom(backgroundColor: Colors.green, padding: const EdgeInsets.symmetric(horizontal: 12)),
-                    child: const Text("Recall"),
-                  ),
-              ],
-            ),
+
+              // Action Bar
+              Container(
+                decoration: const BoxDecoration(
+                  border: Border(top: BorderSide(color: Color(0xFFF1F5F9))),
+                ),
+                child: Row(
+                  children: [
+                    if (isWaiting && index == 0) // Call Button
+                      Expanded(
+                          child: _actionBtn("CALL IN", Icons.notifications_active_rounded, const Color(0xFF10B981),
+                                  () => Provider.of<QueueController>(context, listen: false).updateStatus(appt.id, AppointmentStatus.inProgress))
+                      ),
+
+                    if (isSkipped) // Recall Button
+                      Expanded(
+                          child: _actionBtn("RECALL", Icons.replay_rounded, const Color(0xFF2563EB),
+                                  () => Provider.of<QueueController>(context, listen: false).recallAppointment(appt.id))
+                      ),
+
+                    if (isWaiting || isActive) ...[
+                      // Skip Button
+                      Expanded(
+                          child: _actionBtn("SKIP", Icons.skip_next_rounded, const Color(0xFFF59E0B),
+                                  () => Provider.of<QueueController>(context, listen: false).skipAppointment(appt.id))
+                      ),
+                      // Complete Button
+                      Expanded(
+                          child: _actionBtn("DONE", Icons.check_circle_rounded, const Color(0xFF2563EB),
+                                  () => Provider.of<QueueController>(context, listen: false).updateStatus(appt.id, AppointmentStatus.completed),
+                              isPrimary: true)
+                      ),
+                    ]
+                  ],
+                ),
+              )
+            ],
           ),
         );
       },
+    );
+  }
+
+  Widget _actionBtn(String label, IconData icon, Color color, VoidCallback onTap, {bool isPrimary = false}) {
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        color: isPrimary ? color : Colors.transparent,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 18, color: isPrimary ? Colors.white : color),
+            const SizedBox(width: 8),
+            Text(
+                label,
+                style: TextStyle(
+                    color: isPrimary ? Colors.white : color,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                    letterSpacing: 0.5
+                )
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

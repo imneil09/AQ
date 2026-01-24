@@ -20,47 +20,72 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => QueueController()),
       ],
       child: MaterialApp(
-        title: 'Dr. Tudu Clinic', // UPDATED TITLE
+        title: 'Dr. Tudu Clinic',
         debugShowCheckedModeBanner: false,
         theme: ThemeData(
           useMaterial3: true,
           fontFamily: 'Roboto',
-          // UPDATED: Medical Blue Theme
+          brightness: Brightness.light,
+          scaffoldBackgroundColor: const Color(0xFFF3F6F9), // Light Grey-Blue bg
           colorScheme: ColorScheme.fromSeed(
-            seedColor: const Color(0xFF0055AA), // Medical Blue
-            primary: const Color(0xFF0055AA),
-            secondary: const Color(0xFF00D4FF), // Accent Blue
-            surface: const Color(0xFFF8F9FE),
-            background: const Color(0xFFF8F9FE),
+            seedColor: const Color(0xFF2563EB), // Royal Blue
+            primary: const Color(0xFF2563EB),
+            secondary: const Color(0xFF0F172A), // Dark Slate
+            tertiary: const Color(0xFF38BDF8),  // Light Blue accent
+            surface: Colors.white,
+            background: const Color(0xFFF3F6F9),
           ),
-          scaffoldBackgroundColor: const Color(0xFFF8F9FE),
+
+          // Modern Card Theme
+          cardTheme: CardTheme(
+            color: Colors.white,
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(24),
+                side: BorderSide(color: Colors.grey.withOpacity(0.05))
+            ),
+          ),
+
+          // Kick-ass Input Fields
           inputDecorationTheme: InputDecorationTheme(
             filled: true,
             fillColor: Colors.white,
-            prefixIconColor: const Color(0xFF0055AA),
+            prefixIconColor: const Color(0xFF64748B),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
             border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(20),
               borderSide: BorderSide.none,
             ),
             enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(20),
               borderSide: BorderSide(color: Colors.grey.withOpacity(0.1)),
             ),
             focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16),
-              borderSide: const BorderSide(color: Color(0xFF0055AA), width: 2),
+              borderRadius: BorderRadius.circular(20),
+              borderSide: const BorderSide(color: Color(0xFF2563EB), width: 2),
             ),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+            labelStyle: const TextStyle(color: Color(0xFF64748B), fontWeight: FontWeight.w500),
           ),
+
+          // Premium Buttons
           elevatedButtonTheme: ElevatedButtonThemeData(
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF0055AA),
+              backgroundColor: const Color(0xFF2563EB),
               foregroundColor: Colors.white,
               elevation: 8,
+              shadowColor: const Color(0xFF2563EB).withOpacity(0.4),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-              padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 32),
-              textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 32),
+              textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 0.5),
             ),
+          ),
+
+          appBarTheme: const AppBarTheme(
+            backgroundColor: Color(0xFFF3F6F9),
+            elevation: 0,
+            centerTitle: true,
+            titleTextStyle: TextStyle(color: Color(0xFF0F172A), fontSize: 20, fontWeight: FontWeight.bold),
+            iconTheme: IconThemeData(color: Color(0xFF0F172A)),
           ),
         ),
         home: const AuthView(),

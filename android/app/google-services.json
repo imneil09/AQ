@@ -1,13 +1,13 @@
 {
   "project_info": {
-    "project_number": "690871649921",
-    "project_id": "appointmentqueue-6ebf3",
-    "storage_bucket": "appointmentqueue-6ebf3.firebasestorage.app"
+    "project_number": "1074232279880",
+    "project_id": "appqueue-fdef7",
+    "storage_bucket": "appqueue-fdef7.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:690871649921:android:7ad5e20dc3cb88c3ca6f80",
+        "mobilesdk_app_id": "1:1074232279880:android:a4bafadbf3da360134e97d",
         "android_client_info": {
           "package_name": "com.example.appointmentqueue"
         }
@@ -15,7 +15,7 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyAsedm1SEM4ZGfkqdBcCDR5ycqRIICfzSo"
+          "current_key": "AIzaSyDdITSbKDnxfLG-nxBqidsKqRQ7w9-jswI"
         }
       ],
       "services": {
