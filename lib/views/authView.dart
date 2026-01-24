@@ -148,7 +148,7 @@ class _AuthViewState extends State<AuthView> {
                   ]
               ),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(_isOtpSent ? "Secure Verification" : "Patient Portal", style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+                Text(_isOtpSent ? "Secure Verification" : "Secure Patient Portal", style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
                 const SizedBox(height: 8),
                 Text(_isOtpSent ? "Enter the code sent to your mobile" : "Log in to manage your appointments", style: TextStyle(color: Colors.grey[600], fontSize: 14)),
                 const SizedBox(height: 32),
