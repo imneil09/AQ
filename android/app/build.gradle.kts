@@ -9,9 +9,6 @@ android {
     namespace = "com.example.appointmentqueue"
     compileSdk = flutter.compileSdkVersion
 
-    // FIX 1: Set the specific NDK version required by the plugins
-    ndkVersion = "27.0.12077973"
-
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11

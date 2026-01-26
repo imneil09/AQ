@@ -5,6 +5,7 @@ import '../../controllers/queueController.dart';
 import '../../models/appoinmentModel.dart';
 import '../../models/clinicModel.dart';
 import '../../widgets/appointment.dart';
+import '../historyView.dart';
 import 'adminAddView.dart';
 import 'createClinicView.dart';
 import '../authView.dart';
@@ -48,10 +49,27 @@ class _AdminHomeViewState extends State<AdminHomeView> with SingleTickerProvider
           ),
         ),
         actions: [
+          // Add Clinic Button
           IconButton(
             icon: const Icon(Icons.add_business_rounded, color: Colors.blue),
             onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CreateClinicView())),
           ),
+          // NEW: Professional History Button
+          IconButton(
+            icon: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                  color: const Color(0xFF6366F1).withOpacity(0.1),
+                  shape: BoxShape.circle
+              ),
+              child: const Icon(Icons.receipt_long_rounded, color: Color(0xFF6366F1), size: 20),
+            ),
+            onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const HistoryView(isAdmin: true))
+            ),
+          ),
+          // Logout Button
           IconButton(
             icon: const Icon(Icons.logout, color: Colors.red),
             onPressed: () async {
@@ -68,8 +86,12 @@ class _AdminHomeViewState extends State<AdminHomeView> with SingleTickerProvider
             decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(16)),
             child: TabBar(
               controller: _tabController,
-              indicator: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4)]),
-              labelColor: const Color(0xFF2563EB),
+              indicator: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4)]
+              ),
+              labelColor: const Color(0xFF6366F1),
               unselectedLabelColor: const Color(0xFF64748B),
               labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
               dividerColor: Colors.transparent,
@@ -83,7 +105,17 @@ class _AdminHomeViewState extends State<AdminHomeView> with SingleTickerProvider
         ),
       ),
       body: queue.clinics.isEmpty
-          ? const Center(child: Text("Create a clinic to start"))
+          ? Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.add_business_outlined, size: 80, color: Colors.indigo.withOpacity(0.1)),
+              const SizedBox(height: 16),
+              const Text("Create a clinic to start managing appointments",
+                  style: TextStyle(color: Colors.grey, fontWeight: FontWeight.w500)),
+            ],
+          )
+      )
           : TabBarView(
         controller: _tabController,
         children: [
@@ -96,7 +128,7 @@ class _AdminHomeViewState extends State<AdminHomeView> with SingleTickerProvider
         onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AdminAddView())),
         label: const Text("WALK-IN"),
         icon: const Icon(Icons.add),
-        backgroundColor: const Color(0xFF2563EB),
+        backgroundColor: const Color(0xFF6366F1),
       ) : null,
     );
   }
