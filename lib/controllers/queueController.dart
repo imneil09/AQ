@@ -167,10 +167,14 @@ class QueueController extends ChangeNotifier {
   // FIX: Removed reference to undefined 'AppointmentStatus.skipped'
   List<Appointment> get skippedList => calculatedQueue.where((a) => a.status == AppointmentStatus.missed).toList();
 
+  // REPLACE your existing getter:
   Appointment? get myAppointment {
-    if (currentCustomerId == null) return null;
+    final uid = _auth.currentUser?.uid; // Get fresh UID
+    if (uid == null) return null;
+
     try {
-      return _todayQueue.firstWhere((a) => a.id == currentCustomerId);
+      // Check if the appointment ID matches the User ID (see Fix B below) OR if the data contains the uid
+      return _todayQueue.firstWhere((a) => a.id == uid);
     } catch (e) {
       return null;
     }
