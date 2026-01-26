@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:intl/intl.dart';
 import '../../controllers/queueController.dart';
 import '../../models/appoinmentModel.dart';
 import 'customerJoinView.dart';
@@ -15,7 +16,7 @@ class CustomerHomeView extends StatefulWidget {
 class _CustomerHomeViewState extends State<CustomerHomeView> {
   Future<void> _logout() async {
     await FirebaseAuth.instance.signOut();
-    if (mounted) Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (_) => const AuthView()), (route) => false);
+    if (mounted) Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (_) => const AuthView()), (r) => false);
   }
 
   @override
@@ -45,13 +46,14 @@ class _CustomerHomeViewState extends State<CustomerHomeView> {
       const Text("Join the queue or book for later", style: TextStyle(color: Color(0xFF64748B))),
       const SizedBox(height: 40),
 
-      // Action Buttons
       Padding(
         padding: const EdgeInsets.symmetric(horizontal: 40),
         child: Column(children: [
-          _actionBtn("Join Live Queue", "I am near the clinic", Icons.flash_on_rounded, Colors.white, const Color(0xFF2563EB), () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CustomerJoinView(isBooking: false)))),
+          _actionBtn("Join Live Queue", "I am near the clinic", Icons.flash_on_rounded, Colors.white, const Color(0xFF2563EB),
+                  () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CustomerJoinView(isBooking: false)))),
           const SizedBox(height: 16),
-          _actionBtn("Book Appointment", "Schedule for a future date", Icons.event_rounded, const Color(0xFFEFF6FF), const Color(0xFF1E3A8A), () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CustomerJoinView(isBooking: true)))),
+          _actionBtn("Book Appointment", "Schedule for a future date", Icons.event_rounded, const Color(0xFFEFF6FF), const Color(0xFF1E3A8A),
+                  () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CustomerJoinView(isBooking: true)))),
         ]),
       )
     ]));
@@ -69,11 +71,7 @@ class _CustomerHomeViewState extends State<CustomerHomeView> {
             boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4))]
         ),
         child: Row(children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(color: textColor.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
-            child: Icon(icon, color: textColor),
-          ),
+          Icon(icon, color: textColor),
           const SizedBox(width: 16),
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(title, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: textColor)),
@@ -87,14 +85,20 @@ class _CustomerHomeViewState extends State<CustomerHomeView> {
 
   Widget _buildTicketState(Appointment appt, QueueController queue) {
     bool isWaiting = appt.status == AppointmentStatus.waiting;
-    bool isSkipped = appt.status == AppointmentStatus.skipped;
-    Color statusColor = isSkipped ? const Color(0xFFEF4444) : (isWaiting ? const Color(0xFF2563EB) : const Color(0xFF10B981));
-    String statusText = isSkipped ? "SKIPPED" : (isWaiting ? "IN QUEUE" : "YOUR TURN");
+    bool inProgress = appt.status == AppointmentStatus.inProgress;
+    Color statusColor = inProgress ? const Color(0xFF10B981) : const Color(0xFF2563EB);
+
+    // Calculate display time
+    String timeDisplay = "Checking...";
+    if (inProgress) {
+      timeDisplay = "NOW";
+    } else if (appt.estimatedTime != null) {
+      timeDisplay = DateFormat('hh:mm a').format(appt.estimatedTime!);
+    }
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
       child: Column(children: [
-        // Ticket Card
         Container(
           width: double.infinity,
           decoration: BoxDecoration(
@@ -103,7 +107,7 @@ class _CustomerHomeViewState extends State<CustomerHomeView> {
               boxShadow: [BoxShadow(color: const Color(0xFF2563EB).withOpacity(0.1), blurRadius: 40, offset: const Offset(0, 20))]
           ),
           child: Column(children: [
-            // Header
+            // Status Header
             Container(
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
@@ -111,42 +115,47 @@ class _CustomerHomeViewState extends State<CustomerHomeView> {
                 borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
               ),
               child: Row(children: [
-                Icon(isSkipped ? Icons.warning_rounded : Icons.confirmation_number_rounded, color: Colors.white),
+                const Icon(Icons.confirmation_number_rounded, color: Colors.white),
                 const SizedBox(width: 12),
-                Text(statusText, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
+                Text(inProgress ? "YOUR TURN" : "IN QUEUE", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
                 const Spacer(),
-                Text("#${appt.id.substring(0, 4).toUpperCase()}", style: TextStyle(color: Colors.white.withOpacity(0.8), fontWeight: FontWeight.bold))
+                Text(DateFormat('MMM d').format(appt.appointmentDate), style: TextStyle(color: Colors.white.withOpacity(0.9), fontWeight: FontWeight.bold))
               ]),
             ),
 
-            // Body
             Padding(
               padding: const EdgeInsets.all(32),
               child: Column(children: [
-                const Text("ESTIMATED WAIT", style: TextStyle(color: Color(0xFF64748B), fontSize: 12, letterSpacing: 1.5, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 8),
-                Text(
-                    queue.getEstimatedWaitTime(appt),
-                    style: TextStyle(fontSize: 48, fontWeight: FontWeight.w900, color: statusColor, height: 1.0)
+                // Token Display
+                const Text("TOKEN NUMBER", style: TextStyle(color: Color(0xFF64748B), fontSize: 12, letterSpacing: 1.5, fontWeight: FontWeight.bold)),
+                Text("#${appt.tokenNumber}", style: TextStyle(fontSize: 64, fontWeight: FontWeight.w900, color: statusColor, height: 1.0)),
+
+                const SizedBox(height: 24),
+
+                // Time Display
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  decoration: BoxDecoration(
+                      color: statusColor.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(16)
+                  ),
+                  child: Column(
+                    children: [
+                      const Text("ESTIMATED TIME", style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey)),
+                      Text(timeDisplay, style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: statusColor)),
+                    ],
+                  ),
                 ),
+
                 const SizedBox(height: 32),
                 const Divider(),
-                const SizedBox(height: 32),
-                _infoRow("PATIENT", appt.customerName),
                 const SizedBox(height: 20),
+
+                _infoRow("PATIENT", appt.customerName),
+                const SizedBox(height: 12),
                 _infoRow("SERVICE", appt.serviceType),
-                if(isSkipped) ...[
-                  const SizedBox(height: 32),
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(color: const Color(0xFFFEF2F2), borderRadius: BorderRadius.circular(16), border: Border.all(color: const Color(0xFFFEE2E2))),
-                    child: Row(children: [
-                      const Icon(Icons.info_rounded, color: Color(0xFFEF4444)),
-                      const SizedBox(width: 12),
-                      const Expanded(child: Text("You missed your turn. Please see the receptionist.", style: TextStyle(color: Color(0xFFB91C1C), fontSize: 13, fontWeight: FontWeight.w600)))
-                    ]),
-                  )
-                ]
+                const SizedBox(height: 12),
+                _infoRow("CLINIC", queue.selectedClinic?.name ?? "Main Clinic"), // Ideally store clinic name in Appt or fetch it
               ]),
             )
           ]),

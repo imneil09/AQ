@@ -21,9 +21,15 @@ class _AdminAddViewState extends State<AdminAddView> {
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
 
+    final queue = Provider.of<QueueController>(context, listen: false);
+    if (queue.selectedClinic == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("No clinic selected!")));
+      return;
+    }
+
     setState(() => _isLoading = true);
     try {
-      await Provider.of<QueueController>(context, listen: false).adminAddWalkIn(
+      await queue.adminAddWalkIn(
           _nameController.text,
           _phoneController.text,
           _selectedService
@@ -31,10 +37,7 @@ class _AdminAddViewState extends State<AdminAddView> {
       if(mounted) {
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-                content: Text("Patient Added Successfully"),
-                backgroundColor: Color(0xFF10B981)
-            )
+            const SnackBar(content: Text("Patient Added Successfully"), backgroundColor: Color(0xFF10B981))
         );
       }
     } catch (e) {
@@ -46,17 +49,29 @@ class _AdminAddViewState extends State<AdminAddView> {
 
   @override
   Widget build(BuildContext context) {
+    // Show which clinic we are adding to
+    final clinicName = Provider.of<QueueController>(context).selectedClinic?.name ?? "Unknown Clinic";
+
     return Scaffold(
       backgroundColor: const Color(0xFFF3F6F9),
       appBar: AppBar(
-        title: const Text("Add Walk-In", style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
-        backgroundColor: Colors.white,
-        elevation: 0,
-        iconTheme: const IconThemeData(color: Color(0xFF0F172A)),
+        title: const Text("Add Walk-In Patient"),
+        centerTitle: true,
       ),
       body: SafeArea(
         child: Column(
           children: [
+            // Clinic Indicator
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 24),
+              color: Colors.blue.withOpacity(0.1),
+              child: Text("Adding to: $clinicName",
+                  style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold),
+                  textAlign: TextAlign.center
+              ),
+            ),
+
             Expanded(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.all(24),
@@ -72,54 +87,36 @@ class _AdminAddViewState extends State<AdminAddView> {
                         decoration: BoxDecoration(
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(24),
-                          boxShadow: [BoxShadow(color: const Color(0xFF0F172A).withOpacity(0.04), blurRadius: 20, offset: const Offset(0, 4))],
                         ),
                         child: Column(
                           children: [
                             TextFormField(
                               controller: _nameController,
-                              style: const TextStyle(fontWeight: FontWeight.w600),
-                              decoration: const InputDecoration(
-                                labelText: "Full Name",
-                                prefixIcon: Icon(Icons.person_rounded),
-                                floatingLabelBehavior: FloatingLabelBehavior.auto,
-                              ),
+                              decoration: const InputDecoration(labelText: "Full Name", prefixIcon: Icon(Icons.person)),
                               validator: (v) => v!.isEmpty ? "Name is required" : null,
                             ),
                             const SizedBox(height: 20),
                             TextFormField(
                               controller: _phoneController,
                               keyboardType: TextInputType.phone,
-                              style: const TextStyle(fontWeight: FontWeight.w600),
-                              decoration: const InputDecoration(
-                                labelText: "Phone Number",
-                                prefixIcon: Icon(Icons.phone_iphone_rounded),
-                              ),
+                              decoration: const InputDecoration(labelText: "Phone Number", prefixIcon: Icon(Icons.phone)),
                               validator: (v) => v!.isEmpty ? "Phone is required" : null,
                             ),
                           ],
                         ),
                       ),
-
                       const SizedBox(height: 32),
                       _sectionTitle("Visit Information"),
                       const SizedBox(height: 16),
-
                       Container(
                         padding: const EdgeInsets.all(24),
                         decoration: BoxDecoration(
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(24),
-                          boxShadow: [BoxShadow(color: const Color(0xFF0F172A).withOpacity(0.04), blurRadius: 20, offset: const Offset(0, 4))],
                         ),
                         child: DropdownButtonFormField<String>(
                           value: _selectedService,
-                          style: const TextStyle(color: Color(0xFF0F172A), fontWeight: FontWeight.w600, fontSize: 16),
-                          decoration: const InputDecoration(
-                            labelText: "Purpose of Visit",
-                            prefixIcon: Icon(Icons.medical_services_rounded),
-                          ),
-                          icon: const Icon(Icons.keyboard_arrow_down_rounded),
+                          decoration: const InputDecoration(labelText: "Purpose", prefixIcon: Icon(Icons.medical_services)),
                           items: _services.map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
                           onChanged: (v) => setState(() => _selectedService = v!),
                         ),
@@ -129,21 +126,15 @@ class _AdminAddViewState extends State<AdminAddView> {
                 ),
               ),
             ),
-
-            // Bottom Action Bar
-            Container(
+            Padding(
               padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 20, offset: const Offset(0, -5))],
-              ),
               child: SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(
                   onPressed: _isLoading ? null : _submit,
                   icon: _isLoading
                       ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                      : const Icon(Icons.add_circle_outline_rounded),
+                      : const Icon(Icons.check_circle_outline),
                   label: Text(_isLoading ? "PROCESSING..." : "ADD TO QUEUE"),
                 ),
               ),
@@ -157,15 +148,7 @@ class _AdminAddViewState extends State<AdminAddView> {
   Widget _sectionTitle(String title) {
     return Padding(
       padding: const EdgeInsets.only(left: 8),
-      child: Text(
-        title.toUpperCase(),
-        style: const TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w700,
-            color: Color(0xFF64748B),
-            letterSpacing: 1.2
-        ),
-      ),
+      child: Text(title.toUpperCase(), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF64748B))),
     );
   }
 }
