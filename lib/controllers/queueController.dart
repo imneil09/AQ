@@ -163,16 +163,13 @@ class QueueController extends ChangeNotifier {
   // --- Helpers ---
   List<Appointment> get waitingList => calculatedQueue.where((a) => a.status == AppointmentStatus.waiting).toList();
   List<Appointment> get activeQueue => calculatedQueue.where((a) => a.status == AppointmentStatus.inProgress).toList();
-  List<Appointment> get skippedList => calculatedQueue.where((a) => a.status == AppointmentStatus.missed || a.status == AppointmentStatus.skipped).toList(); // Treating missed/skipped similarly for view
+
+  // FIX: Removed reference to undefined 'AppointmentStatus.skipped'
+  List<Appointment> get skippedList => calculatedQueue.where((a) => a.status == AppointmentStatus.missed).toList();
 
   Appointment? get myAppointment {
     if (currentCustomerId == null) return null;
-    // We search all appointments, filtering for the one that belongs to current user AND is active/waiting
-    // Note: For a real app, you might want a better query or separate stream for "my_booking"
     try {
-      // Find the user's appointment in the current loaded queue (if today)
-      // Or we might need a separate fetch if they booked for a future date.
-      // For MVP, we look at the _todayQueue first.
       return _todayQueue.firstWhere((a) => a.id == currentCustomerId);
     } catch (e) {
       return null;

@@ -86,7 +86,12 @@ class _CustomerHomeViewState extends State<CustomerHomeView> {
   Widget _buildTicketState(Appointment appt, QueueController queue) {
     bool isWaiting = appt.status == AppointmentStatus.waiting;
     bool inProgress = appt.status == AppointmentStatus.inProgress;
-    Color statusColor = inProgress ? const Color(0xFF10B981) : const Color(0xFF2563EB);
+
+    // FIX: Use 'missed' instead of 'skipped'
+    bool isMissed = appt.status == AppointmentStatus.missed;
+
+    Color statusColor = isMissed ? const Color(0xFFEF4444) : (inProgress ? const Color(0xFF10B981) : const Color(0xFF2563EB));
+    String statusText = isMissed ? "MISSED" : (inProgress ? "YOUR TURN" : "IN QUEUE");
 
     // Calculate display time
     String timeDisplay = "Checking...";
@@ -115,9 +120,9 @@ class _CustomerHomeViewState extends State<CustomerHomeView> {
                 borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
               ),
               child: Row(children: [
-                const Icon(Icons.confirmation_number_rounded, color: Colors.white),
+                Icon(isMissed ? Icons.warning_rounded : Icons.confirmation_number_rounded, color: Colors.white),
                 const SizedBox(width: 12),
-                Text(inProgress ? "YOUR TURN" : "IN QUEUE", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
+                Text(statusText, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
                 const Spacer(),
                 Text(DateFormat('MMM d').format(appt.appointmentDate), style: TextStyle(color: Colors.white.withOpacity(0.9), fontWeight: FontWeight.bold))
               ]),
@@ -155,7 +160,20 @@ class _CustomerHomeViewState extends State<CustomerHomeView> {
                 const SizedBox(height: 12),
                 _infoRow("SERVICE", appt.serviceType),
                 const SizedBox(height: 12),
-                _infoRow("CLINIC", queue.selectedClinic?.name ?? "Main Clinic"), // Ideally store clinic name in Appt or fetch it
+                _infoRow("CLINIC", queue.selectedClinic?.name ?? "Main Clinic"),
+
+                if(isMissed) ...[
+                  const SizedBox(height: 32),
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(color: const Color(0xFFFEF2F2), borderRadius: BorderRadius.circular(16), border: Border.all(color: const Color(0xFFFEE2E2))),
+                    child: Row(children: [
+                      const Icon(Icons.info_rounded, color: Color(0xFFEF4444)),
+                      const SizedBox(width: 12),
+                      const Expanded(child: Text("You missed your turn. Please see the receptionist.", style: TextStyle(color: Color(0xFFB91C1C), fontSize: 13, fontWeight: FontWeight.w600)))
+                    ]),
+                  )
+                ]
               ]),
             )
           ]),

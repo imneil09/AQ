@@ -20,145 +20,99 @@ class AppointmentCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Format: "10:30 AM"
-    final timeStr = appointment.estimatedTime != null
-        ? DateFormat('hh:mm a').format(appointment.estimatedTime!)
-        : "Calculating...";
+    // Format Time: if active "NOW", else "10:30 AM"
+    String timeStr;
+    if (appointment.status == AppointmentStatus.inProgress) {
+      timeStr = "NOW";
+    } else if (appointment.estimatedTime != null) {
+      timeStr = DateFormat('hh:mm a').format(appointment.estimatedTime!);
+    } else {
+      timeStr = "Calculating...";
+    }
 
-    final dateStr = DateFormat('MMM d').format(appointment.appointmentDate);
-
-    // Dynamic styling based on Status
-    Color cardColor;
-    Color avatarColor;
-    IconData statusIcon;
+    // Dynamic Colors based on status
+    Color color;
+    Color bgColor;
 
     switch (appointment.status) {
       case AppointmentStatus.inProgress:
-        cardColor = Colors.green.shade50;
-        avatarColor = Colors.green;
-        statusIcon = Icons.medical_services;
+        color = Colors.green;
+        bgColor = Colors.green.shade50;
         break;
-      case AppointmentStatus.missed: // Previously 'skipped'
-        cardColor = Colors.orange.shade50;
-        avatarColor = Colors.orange;
-        statusIcon = Icons.history;
+      case AppointmentStatus.missed:
+        color = Colors.orange;
+        bgColor = Colors.orange.shade50;
         break;
       case AppointmentStatus.completed:
-        cardColor = Colors.grey.shade100;
-        avatarColor = Colors.grey;
-        statusIcon = Icons.check;
+        color = Colors.grey;
+        bgColor = Colors.grey.shade100;
         break;
-      default: // Waiting
-        cardColor = Colors.white;
-        avatarColor = Colors.blue;
-        statusIcon = Icons.person;
+      default:
+        color = Colors.blue;
+        bgColor = Colors.white;
     }
 
     return Card(
-      elevation: appointment.status == AppointmentStatus.inProgress ? 4 : 0,
-      color: cardColor,
+      elevation: appointment.status == AppointmentStatus.inProgress ? 4 : 1,
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
         side: BorderSide(color: Colors.grey.withOpacity(0.1)),
       ),
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      color: bgColor,
       child: Padding(
-        padding: const EdgeInsets.all(12.0),
+        padding: const EdgeInsets.all(16.0),
         child: Row(
           children: [
-            // Token / Status Icon
+            // Token Box
             Container(
-              width: 50,
-              height: 50,
-              decoration: BoxDecoration(
-                color: avatarColor.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
-              ),
+              width: 50, height: 50,
+              decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
               alignment: Alignment.center,
-              child: Text(
-                "#${appointment.tokenNumber}",
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 18,
-                  color: avatarColor,
-                ),
-              ),
+              child: Text("#${appointment.tokenNumber}", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: color)),
             ),
             const SizedBox(width: 16),
 
-            // Details
+            // Text Info
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    appointment.customerName,
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                  ),
+                  Text(appointment.customerName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                   const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      Icon(Icons.access_time_rounded, size: 14, color: Colors.grey[600]),
-                      const SizedBox(width: 4),
-                      Text(
-                        "$timeStr • $dateStr",
-                        style: TextStyle(color: Colors.grey[700], fontSize: 13, fontWeight: FontWeight.w500),
-                      ),
-                    ],
-                  ),
-                  Text(
-                    appointment.serviceType,
-                    style: TextStyle(color: Colors.grey[500], fontSize: 12),
-                  ),
+                  Text("$timeStr • ${appointment.serviceType}", style: TextStyle(color: Colors.grey[700], fontSize: 13)),
                 ],
               ),
             ),
 
-            // Admin Actions
-            if (isAdmin) _buildAdminControls(),
+            // Admin Controls
+            if (isAdmin)
+              Row(
+                children: [
+                  // Only show "Miss" button if waiting
+                  if (appointment.status == AppointmentStatus.waiting)
+                    IconButton(icon: const Icon(Icons.skip_next_rounded, color: Colors.orange), onPressed: onSkip),
+
+                  // Show "Next/Complete" unless already done/missed
+                  if (appointment.status != AppointmentStatus.missed && appointment.status != AppointmentStatus.completed)
+                    IconButton(
+                        icon: Icon(
+                            appointment.status == AppointmentStatus.inProgress ? Icons.check_circle : Icons.play_arrow,
+                            color: color
+                        ),
+                        onPressed: onStatusNext
+                    ),
+
+                  // More menu for cancel
+                  PopupMenuButton(
+                    itemBuilder: (context) => [const PopupMenuItem(value: 'c', child: Text('Cancel Appointment'))],
+                    onSelected: (v) => onCancel?.call(),
+                  )
+                ],
+              ),
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildAdminControls() {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        if (appointment.status == AppointmentStatus.waiting)
-          IconButton(
-            icon: const Icon(Icons.skip_next_rounded, color: Colors.orange),
-            tooltip: "Mark Missed",
-            onPressed: onSkip,
-          ),
-
-        if (appointment.status != AppointmentStatus.missed && appointment.status != AppointmentStatus.completed)
-          IconButton(
-            icon: Icon(
-              appointment.status == AppointmentStatus.inProgress
-                  ? Icons.check_circle_rounded
-                  : Icons.play_arrow_rounded,
-              color: appointment.status == AppointmentStatus.inProgress
-                  ? Colors.green
-                  : Colors.blue,
-            ),
-            onPressed: onStatusNext,
-          ),
-
-        PopupMenuButton(
-          icon: const Icon(Icons.more_vert, color: Colors.grey),
-          itemBuilder: (context) => [
-            const PopupMenuItem(
-              value: 'cancel',
-              child: Row(children: [Icon(Icons.delete_outline, color: Colors.red), SizedBox(width: 8), Text('Cancel')]),
-            ),
-          ],
-          onSelected: (val) {
-            if (val == 'cancel') onCancel?.call();
-          },
-        ),
-      ],
     );
   }
 }

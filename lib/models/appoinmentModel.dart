@@ -4,16 +4,15 @@ enum AppointmentStatus { waiting, inProgress, completed, cancelled, missed }
 
 class Appointment {
   final String id;
-  final String clinicId; // NEW: Link to specific clinic
+  final String clinicId;
   final String customerName;
   final String phoneNumber;
   final String serviceType;
-  final DateTime appointmentDate; // The day of the appointment (00:00 time)
-  final DateTime bookingTimestamp; // When they actually clicked "Book"
-  final int tokenNumber; // Sequential number for that day/clinic
+  final DateTime appointmentDate;
+  final DateTime bookingTimestamp;
+  final int tokenNumber;
   AppointmentStatus status;
 
-  // Dynamic fields (not stored, calculated at runtime)
   DateTime? estimatedTime;
 
   Appointment({

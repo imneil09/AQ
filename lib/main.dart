@@ -3,10 +3,15 @@ import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'controllers/queueController.dart';
 import 'views/authView.dart';
+// REMOVED: import 'firebase_options.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize without arguments.
+  // This works because you have 'android/app/google-services.json'.
   await Firebase.initializeApp();
+
   runApp(const MyApp());
 }
 
@@ -26,17 +31,15 @@ class MyApp extends StatelessWidget {
           useMaterial3: true,
           fontFamily: 'Roboto',
           brightness: Brightness.light,
-          scaffoldBackgroundColor: const Color(0xFFF3F6F9), // Light Grey-Blue bg
+          scaffoldBackgroundColor: const Color(0xFFF3F6F9),
           colorScheme: ColorScheme.fromSeed(
-            seedColor: const Color(0xFF2563EB), // Royal Blue
+            seedColor: const Color(0xFF2563EB),
             primary: const Color(0xFF2563EB),
-            secondary: const Color(0xFF0F172A), // Dark Slate
-            tertiary: const Color(0xFF38BDF8),  // Light Blue accent
+            secondary: const Color(0xFF0F172A),
+            tertiary: const Color(0xFF38BDF8),
             surface: Colors.white,
             background: const Color(0xFFF3F6F9),
           ),
-
-          // Modern Card Theme
           cardTheme: CardTheme(
             color: Colors.white,
             elevation: 0,
@@ -45,8 +48,6 @@ class MyApp extends StatelessWidget {
                 side: BorderSide(color: Colors.grey.withOpacity(0.05))
             ),
           ),
-
-          // Kick-ass Input Fields
           inputDecorationTheme: InputDecorationTheme(
             filled: true,
             fillColor: Colors.white,
@@ -66,8 +67,6 @@ class MyApp extends StatelessWidget {
             ),
             labelStyle: const TextStyle(color: Color(0xFF64748B), fontWeight: FontWeight.w500),
           ),
-
-          // Premium Buttons
           elevatedButtonTheme: ElevatedButtonThemeData(
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF2563EB),
@@ -79,7 +78,6 @@ class MyApp extends StatelessWidget {
               textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 0.5),
             ),
           ),
-
           appBarTheme: const AppBarTheme(
             backgroundColor: Color(0xFFF3F6F9),
             elevation: 0,

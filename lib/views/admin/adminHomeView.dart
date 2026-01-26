@@ -25,13 +25,6 @@ class _AdminHomeViewState extends State<AdminHomeView> with SingleTickerProvider
     _tabController = TabController(length: 3, vsync: this);
   }
 
-  Future<void> _logout() async {
-    await FirebaseAuth.instance.signOut();
-    if (mounted) {
-      Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (_) => const AuthView()), (r) => false);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final queue = Provider.of<QueueController>(context);
@@ -39,16 +32,13 @@ class _AdminHomeViewState extends State<AdminHomeView> with SingleTickerProvider
     return Scaffold(
       backgroundColor: const Color(0xFFF3F6F9),
       appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        centerTitle: false,
         title: queue.clinics.isEmpty
-            ? const Text("Doctor Dashboard", style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold))
+            ? const Text("Doctor Dashboard")
             : DropdownButtonHideUnderline(
           child: DropdownButton<Clinic>(
             value: queue.selectedClinic,
-            icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Colors.black),
-            style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black, fontSize: 18),
+            icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Color(0xFF0F172A)),
+            style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF0F172A), fontSize: 18),
             items: queue.clinics.map((c) => DropdownMenuItem(value: c, child: Text(c.name))).toList(),
             onChanged: (Clinic? newClinic) {
               if (newClinic != null) {
@@ -60,12 +50,14 @@ class _AdminHomeViewState extends State<AdminHomeView> with SingleTickerProvider
         actions: [
           IconButton(
             icon: const Icon(Icons.add_business_rounded, color: Colors.blue),
-            tooltip: "Create New Clinic",
             onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CreateClinicView())),
           ),
           IconButton(
-            icon: const Icon(Icons.logout_rounded, color: Colors.redAccent),
-            onPressed: _logout,
+            icon: const Icon(Icons.logout, color: Colors.red),
+            onPressed: () async {
+              await FirebaseAuth.instance.signOut();
+              if(mounted) Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const AuthView()));
+            },
           )
         ],
         bottom: PreferredSize(
@@ -84,14 +76,14 @@ class _AdminHomeViewState extends State<AdminHomeView> with SingleTickerProvider
               tabs: [
                 Tab(text: "WAITING (${queue.waitingList.length})"),
                 Tab(text: "ACTIVE (${queue.activeQueue.length})"),
-                Tab(text: "HISTORY (${queue.skippedList.length})"),
+                Tab(text: "MISSED (${queue.skippedList.length})"),
               ],
             ),
           ),
         ),
       ),
       body: queue.clinics.isEmpty
-          ? _buildNoClinicState()
+          ? const Center(child: Text("Create a clinic to start"))
           : TabBarView(
         controller: _tabController,
         children: [
@@ -103,24 +95,9 @@ class _AdminHomeViewState extends State<AdminHomeView> with SingleTickerProvider
       floatingActionButton: queue.clinics.isNotEmpty ? FloatingActionButton.extended(
         onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AdminAddView())),
         label: const Text("WALK-IN"),
-        icon: const Icon(Icons.add_rounded),
+        icon: const Icon(Icons.add),
         backgroundColor: const Color(0xFF2563EB),
       ) : null,
-    );
-  }
-
-  Widget _buildNoClinicState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.storefront_rounded, size: 80, color: Colors.grey[300]),
-          const SizedBox(height: 16),
-          const Text("No Clinics Found", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 8),
-          const Text("Create your first clinic to start.", style: TextStyle(color: Colors.grey)),
-        ],
-      ),
     );
   }
 
@@ -139,7 +116,7 @@ class _AdminHomeViewState extends State<AdminHomeView> with SingleTickerProvider
     }
 
     return ListView.builder(
-      padding: const EdgeInsets.only(top: 16, bottom: 100),
+      padding: const EdgeInsets.all(16),
       itemCount: list.length,
       itemBuilder: (context, index) {
         final appt = list[index];

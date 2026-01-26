@@ -23,7 +23,9 @@ class _AuthViewState extends State<AuthView> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_auth.currentUser != null) _redirectUser(_auth.currentUser!);
+      if (_auth.currentUser != null) {
+        _redirectUser(_auth.currentUser!);
+      }
     });
   }
 
@@ -36,15 +38,14 @@ class _AuthViewState extends State<AuthView> {
   }
 
   void _showAdminLogin() {
-    // Keep admin login simple but styled
     final eCtrl = TextEditingController();
     final pCtrl = TextEditingController();
     showDialog(context: context, builder: (_) => AlertDialog(
-      title: const Text("Admin Portal"),
+      title: const Text("Doctor Login"),
       content: Column(mainAxisSize: MainAxisSize.min, children: [
-        TextField(controller: eCtrl, decoration: const InputDecoration(labelText: "Email ID", prefixIcon: Icon(Icons.email_outlined))),
+        TextField(controller: eCtrl, decoration: const InputDecoration(labelText: "Email")),
         const SizedBox(height: 12),
-        TextField(controller: pCtrl, obscureText: true, decoration: const InputDecoration(labelText: "Secure Password", prefixIcon: Icon(Icons.lock_outline))),
+        TextField(controller: pCtrl, obscureText: true, decoration: const InputDecoration(labelText: "Password")),
       ]),
       actions: [
         TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel")),
@@ -53,17 +54,17 @@ class _AuthViewState extends State<AuthView> {
             final cred = await _auth.signInWithEmailAndPassword(email: eCtrl.text.trim(), password: pCtrl.text.trim());
             if (mounted && cred.user != null) { Navigator.pop(context); _redirectUser(cred.user!); }
           } catch (e) { ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString()))); }
-        }, child: const Text("Access Dashboard"))
+        }, child: const Text("Login"))
       ],
     ));
   }
 
   Future<void> _verifyPhone() async {
-    if (_phoneController.text.length < 10) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Invalid Phone Number"))); return; }
+    if (_phoneController.text.length < 10) return;
     setState(() => _isLoading = true);
     await _auth.verifyPhoneNumber(
       phoneNumber: "+91${_phoneController.text.trim()}",
-      verificationCompleted: (c) async { await _auth.signInWithCredential(c); if(mounted)_handleSuccess(); },
+      verificationCompleted: (c) async { await _auth.signInWithCredential(c); if(mounted) _handleSuccess(); },
       verificationFailed: (e) { setState(() => _isLoading = false); ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message!))); },
       codeSent: (id, _) => setState(() { _verificationId = id; _isOtpSent = true; _isLoading = false; }),
       codeAutoRetrievalTimeout: (_) {},
@@ -94,98 +95,47 @@ class _AuthViewState extends State<AuthView> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF3F6F9),
-      body: Stack(children: [
-        // Top Curve Design
-        Container(
-          height: MediaQuery.of(context).size.height * 0.55,
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-                begin: Alignment.topLeft, end: Alignment.bottomRight,
-                colors: [Color(0xFF1E3A8A), Color(0xFF2563EB)]
-            ),
-            borderRadius: BorderRadius.only(bottomLeft: Radius.circular(80), bottomRight: Radius.circular(80)),
-          ),
-          child: SafeArea(
-            child: Center(child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                GestureDetector(
-                  onLongPress: _showAdminLogin,
-                  child: Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(color: Colors.white.withOpacity(0.1), shape: BoxShape.circle),
-                    child: const Icon(Icons.medical_services_rounded, size: 64, color: Colors.white),
-                  ),
+      body: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            children: [
+              GestureDetector(
+                onLongPress: _showAdminLogin,
+                child: Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(color: Colors.blue.shade50, shape: BoxShape.circle),
+                  child: const Icon(Icons.local_hospital_rounded, size: 64, color: Color(0xFF2563EB)),
                 ),
-                const SizedBox(height: 24),
-                const Text("DR. TUSHAR TUDU", style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: 1.2)),
-                const SizedBox(height: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                  decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(20)),
-                  child: const Text("ORTHOPEDIC SURGEON • INDRANAGAR", style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 12, letterSpacing: 1)),
+              ),
+              const SizedBox(height: 24),
+              const Text("Clinic Portal", style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 48),
+              if (!_isOtpSent)
+                TextField(
+                  controller: _phoneController,
+                  keyboardType: TextInputType.phone,
+                  decoration: const InputDecoration(labelText: "Mobile Number", prefixText: "+91 "),
                 ),
-                const SizedBox(height: 60), // Spacing for card
-              ],
-            )),
+              if (_isOtpSent)
+                TextField(
+                  controller: _otpController,
+                  keyboardType: TextInputType.number,
+                  textAlign: TextAlign.center,
+                  decoration: const InputDecoration(hintText: "000000"),
+                ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: _isLoading ? null : (_isOtpSent ? _signInWithOTP : _verifyPhone),
+                  child: Text(_isOtpSent ? "VERIFY" : "GET OTP"),
+                ),
+              ),
+            ],
           ),
         ),
-
-        // Floating Login Card
-        Align(alignment: Alignment.bottomCenter, child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(24, 0, 24, 40),
-          child: Column(children: [
-            SizedBox(height: MediaQuery.of(context).size.height * 0.40),
-            Container(
-              padding: const EdgeInsets.all(32),
-              decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(32),
-                  boxShadow: [
-                    BoxShadow(color: const Color(0xFF2563EB).withOpacity(0.15), blurRadius: 40, offset: const Offset(0, 20)),
-                    BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4)),
-                  ]
-              ),
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(_isOtpSent ? "Secure Verification" : "Secure Patient Portal", style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
-                const SizedBox(height: 8),
-                Text(_isOtpSent ? "Enter the code sent to your mobile" : "Log in to manage your appointments", style: TextStyle(color: Colors.grey[600], fontSize: 14)),
-                const SizedBox(height: 32),
-
-                if (!_isOtpSent)
-                  TextField(
-                      controller: _phoneController,
-                      keyboardType: TextInputType.phone,
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-                      decoration: const InputDecoration(labelText: "Mobile Number", prefixText: "+91 ", prefixIcon: Icon(Icons.phone_iphone_rounded))
-                  ),
-
-                if (_isOtpSent)
-                  TextField(
-                      controller: _otpController,
-                      keyboardType: TextInputType.number,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 24, letterSpacing: 8),
-                      decoration: const InputDecoration(hintText: "• • • • • •")
-                  ),
-
-                const SizedBox(height: 32),
-
-                _isLoading
-                    ? const Center(child: CircularProgressIndicator())
-                    : SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: _isOtpSent ? _signInWithOTP : _verifyPhone,
-                    child: Text(_isOtpSent ? "VERIFY & ACCESS" : "GET SECURE CODE"),
-                  ),
-                ),
-              ]),
-            )
-          ]),
-        ))
-      ]),
+      ),
     );
   }
 }

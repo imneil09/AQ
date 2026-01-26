@@ -3,7 +3,7 @@ class Clinic {
   final String doctorId;
   final String name;
   final String address;
-  final Map<String, ClinicSchedule> weeklySchedule; // Key: 'Monday', 'Tuesday'...
+  final Map<String, ClinicSchedule> weeklySchedule;
 
   Clinic({
     required this.id,
