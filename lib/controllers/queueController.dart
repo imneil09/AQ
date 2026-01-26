@@ -12,12 +12,8 @@ class QueueController extends ChangeNotifier {
   List<Clinic> clinics = [];
   List<Appointment> _todayQueue = [];
   Clinic? selectedClinic;
-  String? currentCustomerId;
 
   QueueController() {
-    if (_auth.currentUser != null) {
-      currentCustomerId = _auth.currentUser!.uid;
-    }
     _fetchClinics();
   }
 
@@ -50,7 +46,7 @@ class QueueController extends ChangeNotifier {
     final now = DateTime.now();
     final todayStart = DateTime(now.year, now.month, now.day);
 
-    // Listens to ANY appointment scheduled for "today" (even if booked weeks ago)
+    // Listens to ANY appointment scheduled for "today"
     _db.collection('appointments')
         .where('clinicId', isEqualTo: clinicId)
         .where('appointmentDate', isEqualTo: Timestamp.fromDate(todayStart))
@@ -135,12 +131,15 @@ class QueueController extends ChangeNotifier {
       status: AppointmentStatus.waiting,
     );
 
-    // If user is logged in, use their ID as doc ID so they can find it easily
-    if (currentCustomerId != null) {
-      await _db.collection('appointments').doc(currentCustomerId).set(newAppt.toMap());
-    } else {
-      await _db.collection('appointments').add(newAppt.toMap());
+    // FIX: Use .add() to create a NEW unique document.
+    // This prevents overwriting the user's previous history.
+    // We add the userId to the data map so we can query it later if needed.
+    Map<String, dynamic> data = newAppt.toMap();
+    if (_auth.currentUser != null) {
+      data['userId'] = _auth.currentUser!.uid;
     }
+
+    await _db.collection('appointments').add(data);
   }
 
   // --- Admin Actions ---
@@ -163,18 +162,18 @@ class QueueController extends ChangeNotifier {
   // --- Helpers ---
   List<Appointment> get waitingList => calculatedQueue.where((a) => a.status == AppointmentStatus.waiting).toList();
   List<Appointment> get activeQueue => calculatedQueue.where((a) => a.status == AppointmentStatus.inProgress).toList();
-
-  // FIX: Removed reference to undefined 'AppointmentStatus.skipped'
   List<Appointment> get skippedList => calculatedQueue.where((a) => a.status == AppointmentStatus.missed).toList();
 
-  // REPLACE your existing getter:
   Appointment? get myAppointment {
-    final uid = _auth.currentUser?.uid; // Get fresh UID
-    if (uid == null) return null;
+    final user = _auth.currentUser;
+    if (user == null) return null;
 
     try {
-      // Check if the appointment ID matches the User ID (see Fix B below) OR if the data contains the uid
-      return _todayQueue.firstWhere((a) => a.id == uid);
+      // FIX: Since we now use .add() (random IDs), we match by Phone Number.
+      // This is robust because AuthView verifies the phone number.
+      return _todayQueue.firstWhere(
+            (a) => a.phoneNumber == user.phoneNumber,
+      );
     } catch (e) {
       return null;
     }
