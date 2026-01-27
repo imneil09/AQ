@@ -18,7 +18,8 @@ class AdminHomeView extends StatefulWidget {
   State<AdminHomeView> createState() => _AdminHomeViewState();
 }
 
-class _AdminHomeViewState extends State<AdminHomeView> with SingleTickerProviderStateMixin {
+class _AdminHomeViewState extends State<AdminHomeView>
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
 
   @override
@@ -40,35 +41,65 @@ class _AdminHomeViewState extends State<AdminHomeView> with SingleTickerProvider
           Container(color: const Color(0xFF0F172A)),
 
           // Blurred Accents
-          Positioned(top: -50, right: -50, child: _BlurCircle(color: const Color(0xFF6366F1).withOpacity(0.2), size: 300)),
-          Positioned(bottom: 100, left: -80, child: _BlurCircle(color: const Color(0xFFF43F5E).withOpacity(0.1), size: 250)),
+          Positioned(
+            top: -50,
+            right: -50,
+            child: _BlurCircle(
+              color: const Color(0xFF6366F1).withOpacity(0.2),
+              size: 300,
+            ),
+          ),
+          Positioned(
+            bottom: 100,
+            left: -80,
+            child: _BlurCircle(
+              color: const Color(0xFFF43F5E).withOpacity(0.1),
+              size: 250,
+            ),
+          ),
 
           SafeArea(
-            child: queue.clinics.isEmpty ? _buildEmptyState() : Column(
-              children: [
-                _buildMetricsHeader(queue),
-                _buildCustomTabBar(),
-                Expanded(
-                  child: TabBarView(
-                    controller: _tabController,
-                    children: [
-                      _buildList(queue, queue.waitingList),
-                      _buildList(queue, queue.activeQueue),
-                      _buildList(queue, queue.skippedList),
-                    ],
-                  ),
-                ),
-              ],
-            ),
+            child:
+                queue.clinics.isEmpty
+                    ? _buildEmptyState()
+                    : Column(
+                      children: [
+                        _buildMetricsHeader(queue),
+                        _buildCustomTabBar(),
+                        Expanded(
+                          child: TabBarView(
+                            controller: _tabController,
+                            children: [
+                              _buildList(queue, queue.waitingList),
+                              _buildList(queue, queue.activeQueue),
+                              _buildList(queue, queue.skippedList),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
           ),
         ],
       ),
-      floatingActionButton: queue.clinics.isNotEmpty ? FloatingActionButton.extended(
-        onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AdminAddView())),
-        label: const Text("WALK-IN", style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1.2)),
-        icon: const Icon(Icons.add_rounded),
-        backgroundColor: const Color(0xFF6366F1),
-      ) : null,
+      floatingActionButton:
+          queue.clinics.isNotEmpty
+              ? FloatingActionButton.extended(
+                onPressed:
+                    () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const AdminAddView()),
+                    ),
+                label: const Text(
+                  "WALK-IN",
+                  style: TextStyle(
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1.2,
+                  ),
+                ),
+                icon: const Icon(Icons.add_rounded),
+                backgroundColor: const Color(0xFF6366F1),
+              )
+              : null,
     );
   }
 
@@ -76,40 +107,64 @@ class _AdminHomeViewState extends State<AdminHomeView> with SingleTickerProvider
     return AppBar(
       backgroundColor: Colors.transparent,
       elevation: 0,
-      title: queue.clinics.isEmpty
-          ? const Text("Dashboard", style: TextStyle(fontWeight: FontWeight.w900))
-          : DropdownButtonHideUnderline(
-        child: DropdownButton<String>( // Change type to String
-          value: controller.selectedClinic?.id, // Use ID
-          items: controller.myClinics.map((clinic) {
-            return DropdownMenuItem<String>(
-              value: clinic.id, // Use ID
-              child: Text(clinic.name),
-            );
-          }).toList(),
-          onChanged: (clinicId) {
-            if (clinicId != null) {
-              // Find the clinic object by ID and update selection
-              final selected = controller.myClinics.firstWhere((c) => c.id == clinicId);
-              controller.selectClinic(selected);
-            }
-          },
-        ),
-      ),
+      title:
+          queue.clinics.isEmpty
+              ? const Text(
+                "Dashboard",
+                style: TextStyle(fontWeight: FontWeight.w900),
+              )
+              : DropdownButtonHideUnderline(
+                child: DropdownButton<String>(
+                  value: queue.selectedClinic?.id,
+                  items:
+                      queue.clinics.map((clinic) {
+                        return DropdownMenuItem<String>(
+                          value: clinic.id,
+                          child: Text(clinic.name),
+                        );
+                      }).toList(),
+                  onChanged: (clinicId) {
+                    if (clinicId != null) {
+                      final selected = queue.clinics.firstWhere(
+                        (c) => c.id == clinicId,
+                      );
+                      queue.selectClinic(selected);
+                    }
+                  },
+                ),
+              ),
+      // ADD THIS ACTIONS BLOCK BACK IN:
       actions: [
         IconButton(
           icon: const Icon(Icons.add_business_rounded, color: Colors.white70),
-          onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CreateClinicView())),
+          onPressed:
+              () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const CreateClinicView()),
+              ),
         ),
         IconButton(
-          icon: const Icon(Icons.receipt_long_rounded, color: Color(0xFF6366F1)),
-          onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const HistoryView(isAdmin: true))),
+          icon: const Icon(
+            Icons.receipt_long_rounded,
+            color: Color(0xFF6366F1),
+          ),
+          onPressed:
+              () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const HistoryView(isAdmin: true),
+                ),
+              ),
         ),
         IconButton(
           icon: const Icon(Icons.logout_rounded, color: Color(0xFFF43F5E)),
           onPressed: () async {
             await FirebaseAuth.instance.signOut();
-            if (mounted) Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const AuthView()));
+            if (mounted)
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (_) => const AuthView()),
+              );
           },
         ),
         const SizedBox(width: 8),
@@ -122,15 +177,29 @@ class _AdminHomeViewState extends State<AdminHomeView> with SingleTickerProvider
       padding: const EdgeInsets.all(20),
       child: Row(
         children: [
-          _buildMetricCard("TODAY", (queue.waitingList.length + queue.activeQueue.length).toString(), Icons.people_outline_rounded),
+          _buildMetricCard(
+            "TODAY",
+            (queue.waitingList.length + queue.activeQueue.length).toString(),
+            Icons.people_outline_rounded,
+          ),
           const SizedBox(width: 16),
-          _buildMetricCard("WAITING", queue.waitingList.length.toString(), Icons.hourglass_empty_rounded, isAccent: true),
+          _buildMetricCard(
+            "WAITING",
+            queue.waitingList.length.toString(),
+            Icons.hourglass_empty_rounded,
+            isAccent: true,
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildMetricCard(String label, String value, IconData icon, {bool isAccent = false}) {
+  Widget _buildMetricCard(
+    String label,
+    String value,
+    IconData icon, {
+    bool isAccent = false,
+  }) {
     return Expanded(
       child: ClipRRect(
         borderRadius: BorderRadius.circular(24),
@@ -139,17 +208,39 @@ class _AdminHomeViewState extends State<AdminHomeView> with SingleTickerProvider
           child: Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: isAccent ? const Color(0xFF6366F1).withOpacity(0.15) : Colors.white.withOpacity(0.05),
+              color:
+                  isAccent
+                      ? const Color(0xFF6366F1).withOpacity(0.15)
+                      : Colors.white.withOpacity(0.05),
               borderRadius: BorderRadius.circular(24),
               border: Border.all(color: Colors.white.withOpacity(0.1)),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(icon, color: isAccent ? const Color(0xFF6366F1) : Colors.white54, size: 20),
+                Icon(
+                  icon,
+                  color: isAccent ? const Color(0xFF6366F1) : Colors.white54,
+                  size: 20,
+                ),
                 const SizedBox(height: 12),
-                Text(value, style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: Colors.white)),
-                Text(label, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: Colors.white38, letterSpacing: 1.2)),
+                Text(
+                  value,
+                  style: const TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.w900,
+                    color: Colors.white,
+                  ),
+                ),
+                Text(
+                  label,
+                  style: const TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w900,
+                    color: Colors.white38,
+                    letterSpacing: 1.2,
+                  ),
+                ),
               ],
             ),
           ),
@@ -161,16 +252,42 @@ class _AdminHomeViewState extends State<AdminHomeView> with SingleTickerProvider
   Widget _buildCustomTabBar() {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-      padding: const EdgeInsets.all(6),
-      decoration: BoxDecoration(color: Colors.white.withOpacity(0.05), borderRadius: BorderRadius.circular(20)),
+      // 1. Increase vertical padding to make the outer container taller
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(24), // Match the new size
+      ),
       child: TabBar(
         controller: _tabController,
-        indicator: BoxDecoration(color: const Color(0xFF6366F1), borderRadius: BorderRadius.circular(16)),
+        // 2. Set to .tab to make the highlighter fill the entire tab width
+        indicatorSize: TabBarIndicatorSize.tab,
+        indicator: BoxDecoration(
+          color: const Color(0xFF6366F1),
+          // 3. Adjust radius to match the larger padding/container
+          borderRadius: BorderRadius.circular(18),
+          // Optional: Add a subtle glow to make it feel "bigger" and more modern
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF6366F1).withOpacity(0.3),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
         labelColor: Colors.white,
         unselectedLabelColor: Colors.white38,
-        labelStyle: const TextStyle(fontWeight: FontWeight.w900, fontSize: 11, letterSpacing: 1),
+        labelStyle: const TextStyle(
+          fontWeight: FontWeight.w900,
+          fontSize: 13, // 4. Slightly increase font size to balance the larger indicator
+          letterSpacing: 1,
+        ),
         dividerColor: Colors.transparent,
-        tabs: const [Tab(text: "WAITING"), Tab(text: "ACTIVE"), Tab(text: "MISSED")],
+        tabs: const [
+          Tab(text: "WAITING"),
+          Tab(text: "ACTIVE"),
+          Tab(text: "MISSED"),
+        ],
       ),
     );
   }
@@ -181,9 +298,19 @@ class _AdminHomeViewState extends State<AdminHomeView> with SingleTickerProvider
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.inbox_rounded, size: 64, color: Colors.white.withOpacity(0.05)),
+            Icon(
+              Icons.inbox_rounded,
+              size: 64,
+              color: Colors.white.withOpacity(0.05),
+            ),
             const SizedBox(height: 16),
-            const Text("Queue is clear", style: TextStyle(color: Colors.white24, fontWeight: FontWeight.bold)),
+            const Text(
+              "Queue is clear",
+              style: TextStyle(
+                color: Colors.white24,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ],
         ),
       );
@@ -204,7 +331,8 @@ class _AdminHomeViewState extends State<AdminHomeView> with SingleTickerProvider
             }
           },
           onSkip: () => queue.updateStatus(appt.id, AppointmentStatus.missed),
-          onCancel: () => queue.updateStatus(appt.id, AppointmentStatus.cancelled),
+          onCancel:
+              () => queue.updateStatus(appt.id, AppointmentStatus.cancelled),
         );
       },
     );
@@ -215,9 +343,19 @@ class _AdminHomeViewState extends State<AdminHomeView> with SingleTickerProvider
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.add_business_rounded, size: 80, color: Colors.white.withOpacity(0.05)),
+          Icon(
+            Icons.add_business_rounded,
+            size: 80,
+            color: Colors.white.withOpacity(0.05),
+          ),
           const SizedBox(height: 16),
-          const Text("No clinics found. Create one to begin.", style: TextStyle(color: Colors.white38, fontWeight: FontWeight.w600)),
+          const Text(
+            "No clinics found. Create one to begin.",
+            style: TextStyle(
+              color: Colors.white38,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
         ],
       ),
     );
@@ -235,7 +373,10 @@ class _BlurCircle extends StatelessWidget {
       width: size,
       height: size,
       decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-      child: BackdropFilter(filter: ImageFilter.blur(sigmaX: 80, sigmaY: 80), child: Container(color: Colors.transparent)),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 80, sigmaY: 80),
+        child: Container(color: Colors.transparent),
+      ),
     );
   }
 }

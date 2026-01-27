@@ -107,57 +107,62 @@ class QueueController extends ChangeNotifier {
 
   // --- UI Helpers & Time Calculations ---
 
-  // lib/controllers/queueController.dart
-  // lib/controllers/queueController.dart
-
-  // ... existing imports and methods
-
-// lib/controllers/queueController.dart
-
   List<Appointment> get calculatedQueue {
     if (selectedClinic == null) return [];
 
     final dayName = DateFormat('EEEE').format(DateTime.now());
     final schedule = selectedClinic!.weeklySchedule[dayName];
 
-    // If clinic is closed today, just return the raw queue
     if (schedule == null || !schedule.isOpen) return _todayQueue;
 
-    // 1. Parse doctor's set start time (e.g., "09:00")
     final parts = schedule.startTime.split(':');
     final startHour = int.parse(parts[0]);
     final startMin = int.parse(parts[1]);
-
     final now = DateTime.now();
 
-    // 2. Anchor the timeline to the doctor's set start time for today
-    DateTime rollingTime = DateTime(now.year, now.month, now.day, startHour, startMin);
+    DateTime rollingTime = DateTime(
+      now.year,
+      now.month,
+      now.day,
+      startHour,
+      startMin,
+    );
 
-    for (var appt in _todayQueue) {
-      if (appt.status == AppointmentStatus.completed || appt.status == AppointmentStatus.missed) {
-        // Historical appointments consume their allotted slot in the past timeline
-        rollingTime = rollingTime.add(Duration(minutes: schedule.avgConsultationTimeMinutes));
+    // FIX: Create a new list to avoid mutating the original stream data
+    return _todayQueue.map((appt) {
+      // Clone the appointment to avoid side effects
+      final calculatedAppt = Appointment(
+        id: appt.id,
+        clinicId: appt.clinicId,
+        customerName: appt.customerName,
+        phoneNumber: appt.phoneNumber,
+        serviceType: appt.serviceType,
+        appointmentDate: appt.appointmentDate,
+        bookingTimestamp: appt.bookingTimestamp,
+        tokenNumber: appt.tokenNumber,
+        status: appt.status,
+      );
+
+      if (calculatedAppt.status == AppointmentStatus.completed ||
+          calculatedAppt.status == AppointmentStatus.missed) {
+        rollingTime = rollingTime.add(
+          Duration(minutes: schedule.avgConsultationTimeMinutes),
+        );
+      } else if (calculatedAppt.status == AppointmentStatus.inProgress) {
+        calculatedAppt.estimatedTime = now;
+        rollingTime = now.add(
+          Duration(minutes: schedule.avgConsultationTimeMinutes),
+        );
+      } else if (calculatedAppt.status == AppointmentStatus.waiting) {
+        if (rollingTime.isBefore(now)) rollingTime = now;
+        calculatedAppt.estimatedTime = rollingTime;
+        rollingTime = rollingTime.add(
+          Duration(minutes: schedule.avgConsultationTimeMinutes),
+        );
       }
-      else if (appt.status == AppointmentStatus.inProgress) {
-        // DYNAMIC SHIFT: The person currently with the doctor is happening "NOW"
-        appt.estimatedTime = now;
-        // All subsequent patients start exactly 10 minutes after "NOW"
-        rollingTime = now.add(Duration(minutes: schedule.avgConsultationTimeMinutes));
-      }
-      else if (appt.status == AppointmentStatus.waiting) {
-        // If the scheduled rolling time has already passed but the doctor hasn't
-        // started the next patient yet, the estimate shifts to "NOW"
-        if (rollingTime.isBefore(now)) {
-          rollingTime = now;
-        }
-        appt.estimatedTime = rollingTime;
-        // Increment the rolling time for the next person in line
-        rollingTime = rollingTime.add(Duration(minutes: schedule.avgConsultationTimeMinutes));
-      }
-    }
-    return _todayQueue;
+      return calculatedAppt;
+    }).toList();
   }
-  // lib/controllers/queueController.dart
 
   Future<void> bookAppointment({
     required String name,
