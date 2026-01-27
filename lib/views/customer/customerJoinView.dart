@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
@@ -53,60 +54,200 @@ class _CustomerJoinViewState extends State<CustomerJoinView> {
   Widget build(BuildContext context) {
     final queue = Provider.of<QueueController>(context);
     return Scaffold(
-      appBar: AppBar(title: Text(widget.isBooking ? "Book Future Visit" : "Join Live Queue")),
-      body: Form(
-        key: _formKey,
-        child: ListView(
-          padding: const EdgeInsets.all(24),
-          children: [
-            DropdownButtonFormField<Clinic>(
-              value: _selectedClinic,
-              hint: const Text("Select Clinic"),
-              items: queue.clinics.map((c) => DropdownMenuItem(value: c, child: Text(c.name))).toList(),
-              onChanged: (val) {
-                setState(() {
-                  _selectedClinic = val;
-                  if (widget.isBooking) _selectedDate = null;
-                });
-              },
-            ),
-            const SizedBox(height: 24),
-            if (widget.isBooking && _selectedClinic != null) ...[
-              GestureDetector(
-                onTap: () async {
-                  final d = await showDatePicker(
-                    context: context,
-                    firstDate: DateTime.now().add(const Duration(days: 1)),
-                    initialDate: DateTime.now().add(const Duration(days: 1)),
-                    lastDate: DateTime.now().add(const Duration(days: 30)),
-                    selectableDayPredicate: (d) => _selectedClinic!.weeklySchedule[DateFormat('EEEE').format(d)]?.isOpen ?? false,
-                  );
-                  if (d != null) setState(() => _selectedDate = d);
-                },
-                child: Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(border: Border.all(color: Colors.grey), borderRadius: BorderRadius.circular(12)),
-                  child: Text(_selectedDate == null ? "Select Date" : DateFormat('EEE, MMM d').format(_selectedDate!)),
+      extendBodyBehindAppBar: true,
+      appBar: AppBar(
+        title: Text(widget.isBooking ? "Book Visit" : "Join Queue",
+            style: const TextStyle(fontWeight: FontWeight.w900, letterSpacing: -0.5)),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+      ),
+      body: Stack(
+        children: [
+          // Background Base
+          Container(color: const Color(0xFF0F172A)),
+
+          // Blurred Accents for Depth
+          Positioned(
+            top: -50,
+            right: -100,
+            child: _BlurCircle(color: const Color(0xFF6366F1).withOpacity(0.2), size: 300),
+          ),
+          Positioned(
+            bottom: 50,
+            left: -80,
+            child: _BlurCircle(color: const Color(0xFF10B981).withOpacity(0.1), size: 250),
+          ),
+
+          SafeArea(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(24),
+              child: Form(
+                key: _formKey,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(32),
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+                    child: Container(
+                      padding: const EdgeInsets.all(32),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.05),
+                        borderRadius: BorderRadius.circular(32),
+                        border: Border.all(color: Colors.white.withOpacity(0.1)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            "Appointment Info",
+                            style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: Colors.white),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            widget.isBooking ? "Schedule your visit for a future date." : "Secure your spot in today's live queue.",
+                            style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 13),
+                          ),
+                          const SizedBox(height: 32),
+
+                          // Clinic Dropdown
+                          _buildLabel("SELECT CLINIC"),
+                          DropdownButtonFormField<Clinic>(
+                            value: _selectedClinic,
+                            dropdownColor: const Color(0xFF1E293B),
+                            borderRadius: BorderRadius.circular(20),
+                            items: queue.clinics.map((c) => DropdownMenuItem(value: c, child: Text(c.name, style: const TextStyle(color: Colors.white)))).toList(),
+                            onChanged: (val) {
+                              setState(() {
+                                _selectedClinic = val;
+                                if (widget.isBooking) _selectedDate = null;
+                              });
+                            },
+                            decoration: const InputDecoration(contentPadding: EdgeInsets.symmetric(horizontal: 24, vertical: 18)),
+                          ),
+                          const SizedBox(height: 24),
+
+                          // Date Picker for Booking
+                          if (widget.isBooking && _selectedClinic != null) ...[
+                            _buildLabel("APPOINTMENT DATE"),
+                            GestureDetector(
+                              onTap: () async {
+                                final d = await showDatePicker(
+                                  context: context,
+                                  firstDate: DateTime.now().add(const Duration(days: 1)),
+                                  initialDate: DateTime.now().add(const Duration(days: 1)),
+                                  lastDate: DateTime.now().add(const Duration(days: 30)),
+                                  selectableDayPredicate: (d) => _selectedClinic!.weeklySchedule[DateFormat('EEEE').format(d)]?.isOpen ?? false,
+                                );
+                                if (d != null) setState(() => _selectedDate = d);
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.all(20),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.03),
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: Border.all(color: _selectedDate != null ? const Color(0xFF6366F1).withOpacity(0.5) : Colors.white.withOpacity(0.08)),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.calendar_today_rounded, size: 18, color: _selectedDate != null ? const Color(0xFF6366F1) : Colors.white38),
+                                    const SizedBox(width: 12),
+                                    Text(
+                                      _selectedDate == null ? "Choose Date" : DateFormat('EEEE, MMM dd').format(_selectedDate!),
+                                      style: TextStyle(fontWeight: FontWeight.bold, color: _selectedDate != null ? Colors.white : Colors.white38),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 24),
+                          ],
+
+                          if (_selectedClinic != null) ...[
+                            // Name Input
+                            _buildLabel("FULL NAME"),
+                            TextFormField(
+                              controller: _nameController,
+                              style: const TextStyle(fontWeight: FontWeight.bold),
+                              decoration: const InputDecoration(hintText: "Enter your name"),
+                              validator: (v) => v!.isEmpty ? "Required" : null,
+                            ),
+                            const SizedBox(height: 24),
+
+                            // Phone Input
+                            _buildLabel("CONTACT NUMBER"),
+                            TextFormField(
+                              controller: _phoneController,
+                              keyboardType: TextInputType.phone,
+                              style: const TextStyle(fontWeight: FontWeight.bold),
+                              decoration: const InputDecoration(
+                                hintText: "00000 00000",
+                                prefixText: "+91 ",
+                                prefixStyle: TextStyle(color: Color(0xFF6366F1), fontWeight: FontWeight.bold),
+                              ),
+                              validator: (v) => v!.isEmpty ? "Required" : null,
+                            ),
+                            const SizedBox(height: 24),
+
+                            // Service Dropdown
+                            _buildLabel("PURPOSE OF VISIT"),
+                            DropdownButtonFormField<String>(
+                              value: _selectedService,
+                              dropdownColor: const Color(0xFF1E293B),
+                              borderRadius: BorderRadius.circular(20),
+                              items: ['New Consultation', 'Follow-up']
+                                  .map((s) => DropdownMenuItem(value: s, child: Text(s, style: const TextStyle(color: Colors.white))))
+                                  .toList(),
+                              onChanged: (v) => setState(() => _selectedService = v!),
+                              decoration: const InputDecoration(contentPadding: EdgeInsets.symmetric(horizontal: 24, vertical: 18)),
+                            ),
+                            const SizedBox(height: 48),
+
+                            // Confirm Button
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton(
+                                onPressed: _isLoading ? null : _submit,
+                                child: _isLoading
+                                    ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 3, color: Colors.white))
+                                    : const Text("CONFIRM APPOINTMENT"),
+                              ),
+                            )
+                          ]
+                        ],
+                      ),
+                    ),
+                  ),
                 ),
               ),
-              const SizedBox(height: 24),
-            ],
-            if (_selectedClinic != null) ...[
-              TextFormField(controller: _nameController, decoration: const InputDecoration(labelText: "Full Name"), validator: (v) => v!.isEmpty ? "Required" : null),
-              const SizedBox(height: 16),
-              TextFormField(controller: _phoneController, keyboardType: TextInputType.phone, decoration: const InputDecoration(labelText: "Phone"), validator: (v) => v!.isEmpty ? "Required" : null),
-              const SizedBox(height: 16),
-              DropdownButtonFormField(
-                value: _selectedService,
-                items: ['New Consultation', 'Follow-up'].map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
-                onChanged: (v) => setState(() => _selectedService = v!),
-              ),
-              const SizedBox(height: 32),
-              ElevatedButton(onPressed: _isLoading ? null : _submit, child: const Text("CONFIRM"))
-            ]
-          ],
-        ),
+            ),
+          ),
+        ],
       ),
+    );
+  }
+
+  Widget _buildLabel(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 4, bottom: 10),
+      child: Text(
+        text,
+        style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 1.5, color: Color(0xFF94A3B8)),
+      ),
+    );
+  }
+}
+
+class _BlurCircle extends StatelessWidget {
+  final Color color;
+  final double size;
+  const _BlurCircle({required this.color, required this.size});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+      child: BackdropFilter(filter: ImageFilter.blur(sigmaX: 80, sigmaY: 80), child: Container(color: Colors.transparent)),
     );
   }
 }

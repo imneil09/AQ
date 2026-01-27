@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/appoinmentModel.dart';
@@ -22,90 +23,176 @@ class AppointmentCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final bool isDone = appointment.status == AppointmentStatus.completed;
     final bool isActive = appointment.status == AppointmentStatus.inProgress;
-    final Color accentColor = isActive ? const Color(0xFF10B981) : const Color(0xFF2563EB);
+    final bool isMissed = appointment.status == AppointmentStatus.missed;
+
+    // Dynamic Color Palette
+    final Color accentColor = isMissed
+        ? const Color(0xFFF43F5E) // Rose for missed
+        : (isActive ? const Color(0xFF10B981) : const Color(0xFF6366F1)); // Emerald for active, Indigo for waiting
 
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: accentColor.withOpacity(isActive ? 0.15 : 0.05),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
-          )
-        ],
-        border: Border.all(color: accentColor.withOpacity(isActive ? 0.3 : 0.05)),
-      ),
+      margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(24),
-        child: IntrinsicHeight(
-          child: Row(
-            children: [
-              // Visual Indicator Strip
-              Container(width: 6, color: accentColor),
-
-              Padding(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  children: [
-                    Text("TOKEN", style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: Colors.grey[400])),
-                    Text("#${appointment.tokenNumber}",
-                        style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: accentColor)),
-                  ],
-                ),
+        borderRadius: BorderRadius.circular(28),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.05),
+              borderRadius: BorderRadius.circular(28),
+              border: Border.all(
+                color: accentColor.withOpacity(isActive ? 0.4 : 0.1),
+                width: 1.5,
               ),
+              boxShadow: [
+                if (isActive)
+                  BoxShadow(
+                    color: accentColor.withOpacity(0.1),
+                    blurRadius: 20,
+                    spreadRadius: -5,
+                  )
+              ],
+            ),
+            child: IntrinsicHeight(
+              child: Row(
+                children: [
+                  // Left Accent Branding Strip
+                  Container(
+                    width: 6,
+                    decoration: BoxDecoration(
+                      color: accentColor,
+                      boxShadow: [
+                        BoxShadow(color: accentColor.withOpacity(0.5), blurRadius: 10)
+                      ],
+                    ),
+                  ),
 
-              const VerticalDivider(width: 1, indent: 20, endIndent: 20),
-
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(appointment.customerName,
-                          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 17, color: Color(0xFF0F172A))),
-                      const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          Icon(Icons.access_time_rounded, size: 14, color: Colors.grey[500]),
-                          const SizedBox(width: 4),
-                          Text(
-                            isActive ? "NOW" : DateFormat('hh:mm a').format(appointment.estimatedTime ?? DateTime.now()),
-                            style: TextStyle(color: accentColor, fontWeight: FontWeight.w700, fontSize: 13),
+                  // Token Section
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Text(
+                          "TOKEN",
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 1.5,
+                            color: Colors.white38,
                           ),
-                          Text(" • ${appointment.serviceType}", style: TextStyle(color: Colors.grey[600], fontSize: 13)),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          "#${appointment.tokenNumber}",
+                          style: TextStyle(
+                            fontSize: 32,
+                            fontWeight: FontWeight.w900,
+                            color: accentColor,
+                            shadows: [
+                              Shadow(color: accentColor.withOpacity(0.3), blurRadius: 12)
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // Elegant Vertical Divider
+                  Container(
+                    width: 1,
+                    margin: const EdgeInsets.symmetric(vertical: 20),
+                    color: Colors.white.withOpacity(0.1),
+                  ),
+
+                  // Info Content Section
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            appointment.customerName.toUpperCase(),
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w900,
+                              fontSize: 16,
+                              color: Colors.white,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              Icon(Icons.timer_outlined, size: 14, color: accentColor.withOpacity(0.7)),
+                              const SizedBox(width: 6),
+                              Text(
+                                isActive ? "NOW" : DateFormat('hh:mm a').format(appointment.estimatedTime ?? DateTime.now()),
+                                style: TextStyle(
+                                  color: accentColor,
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 13,
+                                ),
+                              ),
+                              Text(
+                                " • ${appointment.serviceType}",
+                                style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 13, fontWeight: FontWeight.w600),
+                              ),
+                            ],
+                          ),
                         ],
                       ),
-                    ],
+                    ),
                   ),
-                ),
-              ),
 
-              if (isAdmin && !isDone)
-                Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: Row(
-                    children: [
-                      if (appointment.status == AppointmentStatus.waiting)
-                        IconButton(
-                          icon: const Icon(Icons.forward_rounded, color: Colors.orangeAccent),
-                          onPressed: onSkip,
-                        ),
-                      IconButton(
-                        icon: Icon(isActive ? Icons.check_circle_rounded : Icons.play_circle_fill_rounded,
-                            color: accentColor, size: 32),
-                        onPressed: onStatusNext,
+                  // Admin Quick Actions
+                  if (isAdmin && !isDone)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 12),
+                      child: Row(
+                        children: [
+                          if (appointment.status == AppointmentStatus.waiting)
+                            _buildActionButton(
+                              icon: Icons.fast_forward_rounded,
+                              color: Colors.amberAccent,
+                              onTap: onSkip,
+                            ),
+                          const SizedBox(width: 8),
+                          _buildActionButton(
+                            icon: isActive ? Icons.check_circle_rounded : Icons.play_arrow_rounded,
+                            color: accentColor,
+                            isLarge: true,
+                            onTap: onStatusNext,
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
-                ),
-            ],
+                    ),
+                ],
+              ),
+            ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildActionButton({
+    required IconData icon,
+    required Color color,
+    required VoidCallback? onTap,
+    bool isLarge = false,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: EdgeInsets.all(isLarge ? 12 : 8),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.15),
+          shape: BoxShape.circle,
+          border: Border.all(color: color.withOpacity(0.3)),
+        ),
+        child: Icon(icon, color: color, size: isLarge ? 28 : 20),
       ),
     );
   }

@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -31,105 +32,138 @@ class _AdminHomeViewState extends State<AdminHomeView> with SingleTickerProvider
     final queue = Provider.of<QueueController>(context);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF3F6F9),
-      appBar: AppBar(
-        title: queue.clinics.isEmpty
-            ? const Text("Doctor Dashboard")
-            : DropdownButtonHideUnderline(
-          child: DropdownButton<Clinic>(
-            value: queue.selectedClinic,
-            icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Color(0xFF0F172A)),
-            style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF0F172A), fontSize: 18),
-            items: queue.clinics.map((c) => DropdownMenuItem(value: c, child: Text(c.name))).toList(),
-            onChanged: (Clinic? newClinic) {
-              if (newClinic != null) {
-                queue.selectClinic(newClinic);
-              }
-            },
-          ),
-        ),
-        actions: [
-          // Add Clinic Button
-          IconButton(
-            icon: const Icon(Icons.add_business_rounded, color: Colors.blue),
-            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CreateClinicView())),
-          ),
-          // NEW: Professional History Button
-          IconButton(
-            icon: Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                  color: const Color(0xFF6366F1).withOpacity(0.1),
-                  shape: BoxShape.circle
-              ),
-              child: const Icon(Icons.receipt_long_rounded, color: Color(0xFF6366F1), size: 20),
-            ),
-            onPressed: () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const HistoryView(isAdmin: true))
+      extendBodyBehindAppBar: true,
+      appBar: _buildAppBar(queue),
+      body: Stack(
+        children: [
+          // Background Base
+          Container(color: const Color(0xFF0F172A)),
+
+          // Blurred Accents
+          Positioned(top: -50, right: -50, child: _BlurCircle(color: const Color(0xFF6366F1).withOpacity(0.2), size: 300)),
+          Positioned(bottom: 100, left: -80, child: _BlurCircle(color: const Color(0xFFF43F5E).withOpacity(0.1), size: 250)),
+
+          SafeArea(
+            child: queue.clinics.isEmpty ? _buildEmptyState() : Column(
+              children: [
+                _buildMetricsHeader(queue),
+                _buildCustomTabBar(),
+                Expanded(
+                  child: TabBarView(
+                    controller: _tabController,
+                    children: [
+                      _buildList(queue, queue.waitingList),
+                      _buildList(queue, queue.activeQueue),
+                      _buildList(queue, queue.skippedList),
+                    ],
+                  ),
+                ),
+              ],
             ),
           ),
-          // Logout Button
-          IconButton(
-            icon: const Icon(Icons.logout, color: Colors.red),
-            onPressed: () async {
-              await FirebaseAuth.instance.signOut();
-              if(mounted) Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const AuthView()));
-            },
-          )
         ],
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(60),
+      ),
+      floatingActionButton: queue.clinics.isNotEmpty ? FloatingActionButton.extended(
+        onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AdminAddView())),
+        label: const Text("WALK-IN", style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1.2)),
+        icon: const Icon(Icons.add_rounded),
+        backgroundColor: const Color(0xFF6366F1),
+      ) : null,
+    );
+  }
+
+  PreferredSizeWidget _buildAppBar(QueueController queue) {
+    return AppBar(
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      title: queue.clinics.isEmpty
+          ? const Text("Dashboard", style: TextStyle(fontWeight: FontWeight.w900))
+          : DropdownButtonHideUnderline(
+        child: DropdownButton<Clinic>(
+          value: queue.selectedClinic,
+          dropdownColor: const Color(0xFF1E293B),
+          icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Colors.white),
+          style: const TextStyle(fontWeight: FontWeight.w900, color: Colors.white, fontSize: 20),
+          items: queue.clinics.map((c) => DropdownMenuItem(value: c, child: Text(c.name))).toList(),
+          onChanged: (newClinic) => newClinic != null ? queue.selectClinic(newClinic) : null,
+        ),
+      ),
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.add_business_rounded, color: Colors.white70),
+          onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CreateClinicView())),
+        ),
+        IconButton(
+          icon: const Icon(Icons.receipt_long_rounded, color: Color(0xFF6366F1)),
+          onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const HistoryView(isAdmin: true))),
+        ),
+        IconButton(
+          icon: const Icon(Icons.logout_rounded, color: Color(0xFFF43F5E)),
+          onPressed: () async {
+            await FirebaseAuth.instance.signOut();
+            if (mounted) Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const AuthView()));
+          },
+        ),
+        const SizedBox(width: 8),
+      ],
+    );
+  }
+
+  Widget _buildMetricsHeader(QueueController queue) {
+    return Padding(
+      padding: const EdgeInsets.all(20),
+      child: Row(
+        children: [
+          _buildMetricCard("TODAY", (queue.waitingList.length + queue.activeQueue.length).toString(), Icons.people_outline_rounded),
+          const SizedBox(width: 16),
+          _buildMetricCard("WAITING", queue.waitingList.length.toString(), Icons.hourglass_empty_rounded, isAccent: true),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMetricCard(String label, String value, IconData icon, {bool isAccent = false}) {
+    return Expanded(
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(24),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
           child: Container(
-            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            padding: const EdgeInsets.all(4),
-            decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(16)),
-            child: TabBar(
-              controller: _tabController,
-              indicator: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4)]
-              ),
-              labelColor: const Color(0xFF6366F1),
-              unselectedLabelColor: const Color(0xFF64748B),
-              labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-              dividerColor: Colors.transparent,
-              tabs: [
-                Tab(text: "WAITING (${queue.waitingList.length})"),
-                Tab(text: "ACTIVE (${queue.activeQueue.length})"),
-                Tab(text: "MISSED (${queue.skippedList.length})"),
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: isAccent ? const Color(0xFF6366F1).withOpacity(0.15) : Colors.white.withOpacity(0.05),
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: Colors.white.withOpacity(0.1)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(icon, color: isAccent ? const Color(0xFF6366F1) : Colors.white54, size: 20),
+                const SizedBox(height: 12),
+                Text(value, style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: Colors.white)),
+                Text(label, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: Colors.white38, letterSpacing: 1.2)),
               ],
             ),
           ),
         ),
       ),
-      body: queue.clinics.isEmpty
-          ? Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.add_business_outlined, size: 80, color: Colors.indigo.withOpacity(0.1)),
-              const SizedBox(height: 16),
-              const Text("Create a clinic to start managing appointments",
-                  style: TextStyle(color: Colors.grey, fontWeight: FontWeight.w500)),
-            ],
-          )
-      )
-          : TabBarView(
+    );
+  }
+
+  Widget _buildCustomTabBar() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+      padding: const EdgeInsets.all(6),
+      decoration: BoxDecoration(color: Colors.white.withOpacity(0.05), borderRadius: BorderRadius.circular(20)),
+      child: TabBar(
         controller: _tabController,
-        children: [
-          _buildList(queue, queue.waitingList),
-          _buildList(queue, queue.activeQueue),
-          _buildList(queue, queue.skippedList),
-        ],
+        indicator: BoxDecoration(color: const Color(0xFF6366F1), borderRadius: BorderRadius.circular(16)),
+        labelColor: Colors.white,
+        unselectedLabelColor: Colors.white38,
+        labelStyle: const TextStyle(fontWeight: FontWeight.w900, fontSize: 11, letterSpacing: 1),
+        dividerColor: Colors.transparent,
+        tabs: const [Tab(text: "WAITING"), Tab(text: "ACTIVE"), Tab(text: "MISSED")],
       ),
-      floatingActionButton: queue.clinics.isNotEmpty ? FloatingActionButton.extended(
-        onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AdminAddView())),
-        label: const Text("WALK-IN"),
-        icon: const Icon(Icons.add),
-        backgroundColor: const Color(0xFF6366F1),
-      ) : null,
     );
   }
 
@@ -139,14 +173,13 @@ class _AdminHomeViewState extends State<AdminHomeView> with SingleTickerProvider
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.inbox_rounded, size: 64, color: Colors.grey[200]),
+            Icon(Icons.inbox_rounded, size: 64, color: Colors.white.withOpacity(0.05)),
             const SizedBox(height: 16),
-            Text("List is empty", style: TextStyle(color: Colors.grey[400], fontWeight: FontWeight.bold)),
+            const Text("Queue is clear", style: TextStyle(color: Colors.white24, fontWeight: FontWeight.bold)),
           ],
         ),
       );
     }
-
     return ListView.builder(
       padding: const EdgeInsets.all(16),
       itemCount: list.length,
@@ -166,6 +199,35 @@ class _AdminHomeViewState extends State<AdminHomeView> with SingleTickerProvider
           onCancel: () => queue.updateStatus(appt.id, AppointmentStatus.cancelled),
         );
       },
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.add_business_rounded, size: 80, color: Colors.white.withOpacity(0.05)),
+          const SizedBox(height: 16),
+          const Text("No clinics found. Create one to begin.", style: TextStyle(color: Colors.white38, fontWeight: FontWeight.w600)),
+        ],
+      ),
+    );
+  }
+}
+
+class _BlurCircle extends StatelessWidget {
+  final Color color;
+  final double size;
+  const _BlurCircle({required this.color, required this.size});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+      child: BackdropFilter(filter: ImageFilter.blur(sigmaX: 80, sigmaY: 80), child: Container(color: Colors.transparent)),
     );
   }
 }
