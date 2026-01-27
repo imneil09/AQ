@@ -1,3 +1,5 @@
+// lib/models/clinicModel.dart
+
 class Clinic {
   final String id;
   final String doctorId;
@@ -18,7 +20,9 @@ class Clinic {
       'doctorId': doctorId,
       'name': name,
       'address': address,
-      'weeklySchedule': weeklySchedule.map((key, value) => MapEntry(key, value.toMap())),
+      'weeklySchedule': weeklySchedule.map(
+        (key, value) => MapEntry(key, value.toMap()),
+      ),
     };
   }
 
@@ -28,35 +32,41 @@ class Clinic {
       doctorId: map['doctorId'] ?? '',
       name: map['name'] ?? '',
       address: map['address'] ?? '',
-      weeklySchedule: (map['weeklySchedule'] as Map<String, dynamic>?)?.map(
+      weeklySchedule:
+          (map['weeklySchedule'] as Map<String, dynamic>?)?.map(
             (k, v) => MapEntry(k, ClinicSchedule.fromMap(v)),
-      ) ?? {},
+          ) ??
+          {},
     );
   }
 }
 
 class ClinicSchedule {
   final bool isOpen;
-  final String startTime; // Format "HH:mm" (e.g., "17:00")
+  final String startTime;
   final int avgConsultationTimeMinutes;
+  final int maxAppointmentsPerDay;
 
   ClinicSchedule({
     required this.isOpen,
     required this.startTime,
-    required this.avgConsultationTimeMinutes,
+    this.avgConsultationTimeMinutes = 10, // Default 10 min
+    required this.maxAppointmentsPerDay,
   });
 
   Map<String, dynamic> toMap() => {
     'isOpen': isOpen,
     'startTime': startTime,
     'avgConsultationTimeMinutes': avgConsultationTimeMinutes,
+    'maxAppointmentsPerDay': maxAppointmentsPerDay,
   };
 
   factory ClinicSchedule.fromMap(Map<String, dynamic> map) {
     return ClinicSchedule(
       isOpen: map['isOpen'] ?? false,
       startTime: map['startTime'] ?? "09:00",
-      avgConsultationTimeMinutes: map['avgConsultationTimeMinutes'] ?? 15,
+      avgConsultationTimeMinutes: map['avgConsultationTimeMinutes'] ?? 10,
+      maxAppointmentsPerDay: map['maxAppointmentsPerDay'] ?? 20,
     );
   }
 }

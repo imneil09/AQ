@@ -79,13 +79,21 @@ class _AdminHomeViewState extends State<AdminHomeView> with SingleTickerProvider
       title: queue.clinics.isEmpty
           ? const Text("Dashboard", style: TextStyle(fontWeight: FontWeight.w900))
           : DropdownButtonHideUnderline(
-        child: DropdownButton<Clinic>(
-          value: queue.selectedClinic,
-          dropdownColor: const Color(0xFF1E293B),
-          icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Colors.white),
-          style: const TextStyle(fontWeight: FontWeight.w900, color: Colors.white, fontSize: 20),
-          items: queue.clinics.map((c) => DropdownMenuItem(value: c, child: Text(c.name))).toList(),
-          onChanged: (newClinic) => newClinic != null ? queue.selectClinic(newClinic) : null,
+        child: DropdownButton<String>( // Change type to String
+          value: controller.selectedClinic?.id, // Use ID
+          items: controller.myClinics.map((clinic) {
+            return DropdownMenuItem<String>(
+              value: clinic.id, // Use ID
+              child: Text(clinic.name),
+            );
+          }).toList(),
+          onChanged: (clinicId) {
+            if (clinicId != null) {
+              // Find the clinic object by ID and update selection
+              final selected = controller.myClinics.firstWhere((c) => c.id == clinicId);
+              controller.selectClinic(selected);
+            }
+          },
         ),
       ),
       actions: [
