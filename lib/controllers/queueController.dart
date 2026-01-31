@@ -12,9 +12,22 @@ class QueueController extends ChangeNotifier {
   List<Clinic> clinics = [];
   List<Appointment> _todayQueue = [];
   Clinic? selectedClinic;
+  String _searchQuery = "";
+  String get searchQuery => _searchQuery;
 
   QueueController() {
     _fetchClinics();
+  }
+
+  void updateSearchQuery(String query) {
+    _searchQuery = query.trim();
+    notifyListeners();
+  }
+
+// Add this helper method to filter any list by phone number
+  List<Appointment> filterBySearch(List<Appointment> list) {
+    if (_searchQuery.isEmpty) return list;
+    return list.where((appt) => appt.phoneNumber.contains(_searchQuery)).toList();
   }
 
   // --- Clinic Management ---
