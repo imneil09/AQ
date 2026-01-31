@@ -47,6 +47,83 @@ class QueueController extends ChangeNotifier {
     await _db.collection('clinics').add(data);
   }
 
+  // --- RECALL PATIENT ---
+  Future<void> recallPatient(String id) async {
+    await _db.collection('appointments').doc(id).update({
+      'status': AppointmentStatus.waiting.name,
+    });
+  }
+
+  // --- EMERGENCY CLOSE ---
+  Future<void> emergencyClose() async {
+    if (selectedClinic == null) return;
+    WriteBatch batch = _db.batch();
+
+    // 1. Cancel Today's Queue
+    final todaySnap =
+        await _db
+            .collection('appointments')
+            .where('clinicId', isEqualTo: selectedClinic!.id)
+            .where('status', whereIn: ['waiting', 'active', 'skipped'])
+            .get();
+
+    // 2. Cancel All Future Appointments
+    final futureSnap =
+        await _db
+            .collection('appointments')
+            .where('clinicId', isEqualTo: selectedClinic!.id)
+            .where(
+              'appointmentDate',
+              isGreaterThan: Timestamp.fromDate(DateTime.now()),
+            )
+            .get();
+
+    for (var doc in [...todaySnap.docs, ...futureSnap.docs]) {
+      batch.update(doc.reference, {'status': AppointmentStatus.cancelled.name});
+    }
+
+    await batch.commit();
+    notifyListeners();
+  }
+
+  // --- AUTOMATIC MIDNIGHT CLEANUP ---
+  // Run this whenever the Doctor Dashboard loads
+  Future<void> autoCleanup() async {
+    if (selectedClinic == null) return;
+    final now = DateTime.now();
+    final todayStart = DateTime(now.year, now.month, now.day);
+
+    final leftovers =
+        await _db
+            .collection('appointments')
+            .where('clinicId', isEqualTo: selectedClinic!.id)
+            .where(
+              'appointmentDate',
+              isLessThan: Timestamp.fromDate(todayStart),
+            )
+            .where('status', whereIn: ['waiting', 'skipped', 'active'])
+            .get();
+
+    if (leftovers.docs.isEmpty) return;
+    WriteBatch batch = _db.batch();
+    for (var doc in leftovers.docs) {
+      batch.update(doc.reference, {'status': AppointmentStatus.cancelled.name});
+    }
+    await batch.commit();
+  }
+
+  Stream<List<Appointment>> get customerHistory {
+    final user = _auth.currentUser;
+    if (user == null) return Stream.value([]);
+
+    return _db.collection('appointments')
+        .where('phoneNumber', isEqualTo: user.phoneNumber) // Private filter
+        .where('status', whereIn: ['completed', 'cancelled']) // Only final states
+        .orderBy('appointmentDate', descending: true)
+        .snapshots()
+        .map((snap) => snap.docs.map((d) => Appointment.fromMap(d.data(), d.id)).toList());
+  }
+
   // --- Live Queue Logic (Today Only) ---
 
   void _listenToQueue(String clinicId) {

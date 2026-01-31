@@ -1,26 +1,27 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-
-enum AppointmentStatus { waiting, inProgress, completed, cancelled, missed }
+enum AppointmentStatus { waiting, active, skipped, completed, cancelled }
 
 class Appointment {
   final String id;
   final String clinicId;
+  final String doctorId; // Added for Global Doctor History
   final String customerName;
   final String phoneNumber;
   final String serviceType;
+  final String type; // "live" or "appointment"
   final DateTime appointmentDate;
   final DateTime bookingTimestamp;
   final int tokenNumber;
   AppointmentStatus status;
-
   DateTime? estimatedTime;
 
   Appointment({
     required this.id,
     required this.clinicId,
+    required this.doctorId,
     required this.customerName,
     required this.phoneNumber,
     required this.serviceType,
+    required this.type,
     required this.appointmentDate,
     required this.bookingTimestamp,
     required this.tokenNumber,
@@ -30,9 +31,11 @@ class Appointment {
   Map<String, dynamic> toMap() {
     return {
       'clinicId': clinicId,
+      'doctorId': doctorId,
       'customerName': customerName,
       'phoneNumber': phoneNumber,
       'serviceType': serviceType,
+      'type': type,
       'appointmentDate': Timestamp.fromDate(appointmentDate),
       'bookingTimestamp': Timestamp.fromDate(bookingTimestamp),
       'tokenNumber': tokenNumber,
@@ -44,9 +47,11 @@ class Appointment {
     return Appointment(
       id: docId,
       clinicId: map['clinicId'] ?? '',
+      doctorId: map['doctorId'] ?? '',
       customerName: map['customerName'] ?? '',
       phoneNumber: map['phoneNumber'] ?? '',
       serviceType: map['serviceType'] ?? '',
+      type: map['type'] ?? 'live',
       appointmentDate: (map['appointmentDate'] as Timestamp).toDate(),
       bookingTimestamp: (map['bookingTimestamp'] as Timestamp).toDate(),
       tokenNumber: map['tokenNumber'] ?? 0,
