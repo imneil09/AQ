@@ -1,9 +1,11 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 enum AppointmentStatus { waiting, active, skipped, completed, cancelled }
 
 class Appointment {
   final String id;
   final String clinicId;
-  final String doctorId; // Added for Global Doctor History
+  final String doctorId;
   final String customerName;
   final String phoneNumber;
   final String serviceType;
@@ -44,19 +46,27 @@ class Appointment {
   }
 
   factory Appointment.fromMap(Map<String, dynamic> map, String docId) {
+    DateTime toDateTime(dynamic val) {
+      if (val is Timestamp) return val.toDate();
+      if (val is String) return DateTime.tryParse(val) ?? DateTime.now();
+      return DateTime.now();
+    }
+
     return Appointment(
       id: docId,
       clinicId: map['clinicId'] ?? '',
       doctorId: map['doctorId'] ?? '',
-      customerName: map['customerName'] ?? '',
+      customerName: map['customerName'] ?? 'Unknown',
       phoneNumber: map['phoneNumber'] ?? '',
-      serviceType: map['serviceType'] ?? '',
+      serviceType: map['serviceType'] ?? 'New Consultation',
       type: map['type'] ?? 'live',
-      appointmentDate: (map['appointmentDate'] as Timestamp).toDate(),
-      bookingTimestamp: (map['bookingTimestamp'] as Timestamp).toDate(),
-      tokenNumber: map['tokenNumber'] ?? 0,
+      appointmentDate: toDateTime(map['appointmentDate']),
+      bookingTimestamp: toDateTime(map['bookingTimestamp']),
+      tokenNumber: (map['tokenNumber'] is int) ? map['tokenNumber'] : 0,
       status: AppointmentStatus.values.firstWhere(
-              (e) => e.name == map['status'], orElse: () => AppointmentStatus.waiting),
+            (e) => e.name == map['status'],
+        orElse: () => AppointmentStatus.waiting,
+      ),
     );
   }
 }

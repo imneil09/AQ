@@ -21,7 +21,7 @@ class Clinic {
       'name': name,
       'address': address,
       'weeklySchedule': weeklySchedule.map(
-        (key, value) => MapEntry(key, value.toMap()),
+            (key, value) => MapEntry(key, value.toMap()),
       ),
     };
   }
@@ -32,10 +32,9 @@ class Clinic {
       doctorId: map['doctorId'] ?? '',
       name: map['name'] ?? '',
       address: map['address'] ?? '',
-      weeklySchedule:
-          (map['weeklySchedule'] as Map<String, dynamic>?)?.map(
-            (k, v) => MapEntry(k, ClinicSchedule.fromMap(v)),
-          ) ??
+      weeklySchedule: (map['weeklySchedule'] as Map<String, dynamic>?)?.map(
+            (k, v) => MapEntry(k, ClinicSchedule.fromMap(v as Map<String, dynamic>)),
+      ) ??
           {},
     );
   }
