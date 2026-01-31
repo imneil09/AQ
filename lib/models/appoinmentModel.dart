@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+// UPDATED STATUS ENUM: Strictly waiting, active, skipped, completed, cancelled
 enum AppointmentStatus { waiting, active, skipped, completed, cancelled }
 
 class Appointment {
@@ -14,7 +15,7 @@ class Appointment {
   final DateTime bookingTimestamp;
   final int tokenNumber;
   AppointmentStatus status;
-  DateTime? estimatedTime;
+  DateTime? estimatedTime; // Helper for UI display
 
   Appointment({
     required this.id,
@@ -28,6 +29,7 @@ class Appointment {
     required this.bookingTimestamp,
     required this.tokenNumber,
     this.status = AppointmentStatus.waiting,
+    this.estimatedTime,
   });
 
   Map<String, dynamic> toMap() {
