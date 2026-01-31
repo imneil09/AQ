@@ -26,6 +26,7 @@ class _CustomerJoinViewState extends State<CustomerJoinView> {
   @override
   void initState() {
     super.initState();
+    // If joining "Live", the date is automatically Today
     if (!widget.isBooking) {
       _selectedDate = DateTime.now();
     }
@@ -35,6 +36,7 @@ class _CustomerJoinViewState extends State<CustomerJoinView> {
     if (!_formKey.currentState!.validate() || _selectedClinic == null || _selectedDate == null) return;
     setState(() => _isLoading = true);
     try {
+      // CONTROLLER HOOK: Calls the central bookAppointment method
       await Provider.of<QueueController>(context, listen: false).bookAppointment(
         name: _nameController.text,
         phone: _phoneController.text,
@@ -118,14 +120,16 @@ class _CustomerJoinViewState extends State<CustomerJoinView> {
                             onChanged: (val) {
                               setState(() {
                                 _selectedClinic = val;
+                                // Reset date if switching clinics (as availability might differ, though simplified here)
                                 if (widget.isBooking) _selectedDate = null;
                               });
                             },
                             decoration: const InputDecoration(contentPadding: EdgeInsets.symmetric(horizontal: 24, vertical: 18)),
+                            validator: (v) => v == null ? "Please select a clinic" : null,
                           ),
                           const SizedBox(height: 24),
 
-                          // Date Picker for Booking
+                          // Date Picker for Booking (Only shown if booking future)
                           if (widget.isBooking && _selectedClinic != null) ...[
                             _buildLabel("APPOINTMENT DATE"),
                             GestureDetector(
@@ -193,7 +197,7 @@ class _CustomerJoinViewState extends State<CustomerJoinView> {
                               value: _selectedService,
                               dropdownColor: const Color(0xFF1E293B),
                               borderRadius: BorderRadius.circular(20),
-                              items: ['New Consultation', 'Follow-up']
+                              items: ['New Consultation', 'Follow-up', 'Reports Show', 'General Inquiry']
                                   .map((s) => DropdownMenuItem(value: s, child: Text(s, style: const TextStyle(color: Colors.white))))
                                   .toList(),
                               onChanged: (v) => setState(() => _selectedService = v!),

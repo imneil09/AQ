@@ -46,23 +46,47 @@ class _AuthViewState extends State<AuthView> {
       builder: (_) => BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
         child: AlertDialog(
-          backgroundColor: const Color(0xFF1E293B).withOpacity(0.8),
+          backgroundColor: const Color(0xFF1E293B).withOpacity(0.9),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(28),
             side: BorderSide(color: Colors.white.withOpacity(0.1)),
           ),
-          title: const Text("Doctor Login", style: TextStyle(fontWeight: FontWeight.bold)),
+          title: const Text("Administrator Access", style: TextStyle(fontWeight: FontWeight.w700, color: Colors.white)),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              TextField(controller: eCtrl, decoration: const InputDecoration(labelText: "Email")),
+              TextField(
+                  controller: eCtrl,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: const InputDecoration(
+                      labelText: "Email ID",
+                      labelStyle: TextStyle(color: Colors.white60),
+                      enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.white24))
+                  )
+              ),
               const SizedBox(height: 16),
-              TextField(controller: pCtrl, obscureText: true, decoration: const InputDecoration(labelText: "Password")),
+              TextField(
+                  controller: pCtrl,
+                  obscureText: true,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: const InputDecoration(
+                      labelText: "Password",
+                      labelStyle: TextStyle(color: Colors.white60),
+                      enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.white24))
+                  )
+              ),
             ],
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel")),
+            TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text("CANCEL", style: TextStyle(color: Colors.white54))
+            ),
             ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF6366F1),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))
+              ),
               onPressed: () async {
                 try {
                   final cred = await _auth.signInWithEmailAndPassword(email: eCtrl.text.trim(), password: pCtrl.text.trim());
@@ -74,7 +98,7 @@ class _AuthViewState extends State<AuthView> {
                   ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
                 }
               },
-              child: const Text("LOGIN"),
+              child: const Text("SECURE LOGIN"),
             )
           ],
         ),
@@ -136,34 +160,42 @@ class _AuthViewState extends State<AuthView> {
     return Scaffold(
       body: Stack(
         children: [
-          // Background Base
+          // Background Deep Slate
           Container(color: const Color(0xFF0F172A)),
 
-          // Blurred Accents
+          // Professional Ambient Glows
           Positioned(
             top: -100,
             right: -50,
-            child: _BlurCircle(color: const Color(0xFF6366F1).withOpacity(0.2), size: 300),
+            child: _BlurCircle(color: const Color(0xFF6366F1).withOpacity(0.15), size: 400),
           ),
           Positioned(
             bottom: -50,
             left: -50,
-            child: _BlurCircle(color: const Color(0xFFF43F5E).withOpacity(0.15), size: 250),
+            child: _BlurCircle(color: const Color(0xFFF43F5E).withOpacity(0.1), size: 300),
           ),
 
+          // Main Login Interface
           Center(
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(24),
               child: ClipRRect(
-                borderRadius: BorderRadius.circular(40),
+                borderRadius: BorderRadius.circular(32),
                 child: BackdropFilter(
                   filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 48),
+                    padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 56),
                     decoration: BoxDecoration(
                       color: Colors.white.withOpacity(0.05),
-                      borderRadius: BorderRadius.circular(40),
-                      border: Border.all(color: Colors.white.withOpacity(0.1)),
+                      borderRadius: BorderRadius.circular(32),
+                      border: Border.all(color: Colors.white.withOpacity(0.08)),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.2),
+                          blurRadius: 30,
+                          offset: const Offset(0, 10),
+                        )
+                      ],
                     ),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
@@ -171,54 +203,85 @@ class _AuthViewState extends State<AuthView> {
                         GestureDetector(
                           onLongPress: _showAdminLogin,
                           child: Container(
-                            padding: const EdgeInsets.all(24),
+                            padding: const EdgeInsets.all(20),
                             decoration: BoxDecoration(
                               color: const Color(0xFF6366F1).withOpacity(0.1),
                               shape: BoxShape.circle,
                               border: Border.all(color: const Color(0xFF6366F1).withOpacity(0.2)),
                             ),
-                            child: const Icon(Icons.local_hospital_rounded, size: 56, color: Color(0xFF6366F1)),
+                            child: const Icon(Icons.medical_services_rounded, size: 48, color: Color(0xFF6366F1)),
                           ),
                         ),
-                        const SizedBox(height: 28),
+                        const SizedBox(height: 32),
                         const Text(
-                          "Clinic Portal",
-                          style: TextStyle(fontSize: 32, fontWeight: FontWeight.w900, letterSpacing: -1),
+                          "Welcome Back",
+                          style: TextStyle(
+                              fontSize: 28,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: -0.5,
+                              color: Colors.white
+                          ),
                         ),
-                        const SizedBox(height: 8),
+                        const SizedBox(height: 12),
                         Text(
-                          _isOtpSent ? "Enter the code sent to your mobile" : "Enter your number to continue",
+                          _isOtpSent ? "Enter the verification code sent to your device." : "Sign in to access your digital health queue.",
                           textAlign: TextAlign.center,
-                          style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 14),
+                          style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 14, height: 1.5),
                         ),
                         const SizedBox(height: 48),
+
                         if (!_isOtpSent)
-                          TextField(
-                            controller: _phoneController,
-                            keyboardType: TextInputType.phone,
-                            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                            decoration: const InputDecoration(
-                              labelText: "Mobile Number",
-                              prefixText: "+91 ",
-                              prefixStyle: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF6366F1)),
+                          Container(
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.05),
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: TextField(
+                              controller: _phoneController,
+                              keyboardType: TextInputType.phone,
+                              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+                              decoration: const InputDecoration(
+                                labelText: "Mobile Number",
+                                labelStyle: TextStyle(color: Colors.white38),
+                                prefixText: "+91 ",
+                                prefixStyle: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF6366F1)),
+                                border: InputBorder.none,
+                                contentPadding: EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                              ),
                             ),
                           ),
+
                         if (_isOtpSent)
                           TextField(
                             controller: _otpController,
                             keyboardType: TextInputType.number,
                             textAlign: TextAlign.center,
-                            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, letterSpacing: 8),
-                            decoration: const InputDecoration(hintText: "000000", hintStyle: TextStyle(letterSpacing: 8, color: Colors.white24)),
+                            style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold, letterSpacing: 8, color: Colors.white),
+                            decoration: const InputDecoration(
+                              hintText: "••••••",
+                              hintStyle: TextStyle(letterSpacing: 8, color: Colors.white12),
+                              border: InputBorder.none,
+                            ),
                           ),
+
                         const SizedBox(height: 32),
+
                         SizedBox(
                           width: double.infinity,
                           child: ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF6366F1),
+                              padding: const EdgeInsets.symmetric(vertical: 18),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                              elevation: 0,
+                            ),
                             onPressed: _isLoading ? null : (_isOtpSent ? _signInWithOTP : _verifyPhone),
                             child: _isLoading
-                                ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 3, color: Colors.white))
-                                : Text(_isOtpSent ? "VERIFY OTP" : "GET SECURE OTP"),
+                                ? const SizedBox(height: 24, width: 24, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                                : Text(
+                              _isOtpSent ? "VERIFY & PROCEED" : "GET SECURE OTP",
+                              style: const TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1),
+                            ),
                           ),
                         ),
                       ],
@@ -228,6 +291,32 @@ class _AuthViewState extends State<AuthView> {
               ),
             ),
           ),
+
+          // Clean Professional Footer with Credit
+          Positioned(
+            bottom: 24,
+            left: 0,
+            right: 0,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  "Secure Health Portal • v1.0",
+                  style: TextStyle(color: Colors.white.withOpacity(0.2), fontSize: 12, fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  "Crafted thoughtfully in India by Sagar Bhowmik 🇮🇳",
+                  style: TextStyle(
+                      color: Colors.white.withOpacity(0.4),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                      letterSpacing: 0.5
+                  ),
+                ),
+              ],
+            ),
+          )
         ],
       ),
     );
@@ -245,7 +334,7 @@ class _BlurCircle extends StatelessWidget {
       width: size,
       height: size,
       decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-      child: BackdropFilter(filter: ImageFilter.blur(sigmaX: 70, sigmaY: 70), child: Container(color: Colors.transparent)),
+      child: BackdropFilter(filter: ImageFilter.blur(sigmaX: 80, sigmaY: 80), child: Container(color: Colors.transparent)),
     );
   }
 }

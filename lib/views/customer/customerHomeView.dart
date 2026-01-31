@@ -33,14 +33,9 @@ class _CustomerHomeViewState extends State<CustomerHomeView> {
         elevation: 0,
         title: const Text("My Visits", style: TextStyle(fontWeight: FontWeight.w900, color: Colors.white)),
         actions: [
-          IconButton(
-            icon: Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(color: Colors.white.withOpacity(0.1), shape: BoxShape.circle),
-              child: const Icon(Icons.history_rounded, color: Colors.white, size: 20),
-            ),
-            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const HistoryView(isAdmin: false))),
-          ),
+          // REMOVED: Redundant History Icon Button
+          // The "Visit Records" button in the body handles this action now.
+
           IconButton(icon: const Icon(Icons.logout_rounded, color: Color(0xFFF43F5E)), onPressed: _logout),
           const SizedBox(width: 8),
         ],
@@ -131,12 +126,23 @@ class _CustomerHomeViewState extends State<CustomerHomeView> {
   }
 
   Widget _buildTicketState(Appointment appt, QueueController queue) {
-    bool inProgress = appt.status == AppointmentStatus.inProgress;
-    bool isMissed = appt.status == AppointmentStatus.missed;
+    bool inProgress = appt.status == AppointmentStatus.active;
+    bool isSkipped = appt.status == AppointmentStatus.skipped;
 
-    Color statusColor = isMissed ? const Color(0xFFF43F5E) : (inProgress ? const Color(0xFF10B981) : const Color(0xFF6366F1));
-    String statusText = isMissed ? "MISSED" : (inProgress ? "YOUR TURN" : "IN QUEUE");
-    String timeDisplay = inProgress ? "NOW" : (appt.estimatedTime != null ? DateFormat('hh:mm a').format(appt.estimatedTime!) : "CALCULATING...");
+    Color statusColor = isSkipped
+        ? const Color(0xFFF59E0B) // Amber for Skipped
+        : (inProgress ? const Color(0xFF10B981) : const Color(0xFF6366F1));
+
+    String statusText = isSkipped ? "SKIPPED" : (inProgress ? "YOUR TURN" : "IN QUEUE");
+
+    String timeDisplay = "WAITING...";
+    if (inProgress) {
+      timeDisplay = "NOW";
+    } else if (appt.estimatedTime != null) {
+      timeDisplay = DateFormat('hh:mm a').format(appt.estimatedTime!);
+    } else if (isSkipped) {
+      timeDisplay = "--:--";
+    }
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
@@ -161,7 +167,7 @@ class _CustomerHomeViewState extends State<CustomerHomeView> {
                   ),
                   child: Row(
                     children: [
-                      Icon(isMissed ? Icons.warning_rounded : Icons.confirmation_number_rounded, color: statusColor),
+                      Icon(isSkipped ? Icons.warning_rounded : Icons.confirmation_number_rounded, color: statusColor),
                       const SizedBox(width: 12),
                       Text(statusText, style: TextStyle(color: statusColor, fontWeight: FontWeight.w900, letterSpacing: 1.5, fontSize: 12)),
                       const Spacer(),
@@ -195,16 +201,21 @@ class _CustomerHomeViewState extends State<CustomerHomeView> {
                       _infoRow("SERVICE", appt.serviceType),
                       const Divider(height: 32, color: Colors.white10),
                       _infoRow("CLINIC", queue.selectedClinic?.name ?? "Main Clinic"),
-                      if (isMissed) ...[
+
+                      if (isSkipped) ...[
                         const SizedBox(height: 32),
                         Container(
                           padding: const EdgeInsets.all(20),
-                          decoration: BoxDecoration(color: const Color(0xFFF43F5E).withOpacity(0.1), borderRadius: BorderRadius.circular(20), border: Border.all(color: const Color(0xFFF43F5E).withOpacity(0.2))),
+                          decoration: BoxDecoration(
+                              color: const Color(0xFFF59E0B).withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(color: const Color(0xFFF59E0B).withOpacity(0.2))
+                          ),
                           child: const Row(
                             children: [
-                              Icon(Icons.info_rounded, color: Color(0xFFF43F5E)),
+                              Icon(Icons.info_rounded, color: Color(0xFFF59E0B)),
                               SizedBox(width: 12),
-                              Expanded(child: Text("You missed your turn. Please see the receptionist.", style: TextStyle(color: Color(0xFFF43F5E), fontSize: 13, fontWeight: FontWeight.bold))),
+                              Expanded(child: Text("You were skipped. Please see the receptionist to be recalled.", style: TextStyle(color: Color(0xFFF59E0B), fontSize: 13, fontWeight: FontWeight.bold))),
                             ],
                           ),
                         ),

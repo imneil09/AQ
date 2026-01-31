@@ -19,8 +19,10 @@ class _AdminAddViewState extends State<AdminAddView> {
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
+
     setState(() => _isLoading = true);
     try {
+      // Calls the controller to add a patient to TODAY's queue
       await Provider.of<QueueController>(context, listen: false).adminAddWalkIn(
           _nameController.text,
           _phoneController.text,
@@ -42,6 +44,7 @@ class _AdminAddViewState extends State<AdminAddView> {
         title: const Text("Walk-In Patient", style: TextStyle(fontWeight: FontWeight.w900)),
         backgroundColor: Colors.transparent,
         elevation: 0,
+        iconTheme: const IconThemeData(color: Colors.white),
       ),
       body: Stack(
         children: [
@@ -94,7 +97,8 @@ class _AdminAddViewState extends State<AdminAddView> {
                           _buildLabel("NAME"),
                           TextFormField(
                             controller: _nameController,
-                            style: const TextStyle(fontWeight: FontWeight.bold),
+                            style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+                            cursorColor: const Color(0xFF6366F1),
                             decoration: const InputDecoration(hintText: "Enter full name"),
                             validator: (v) => v!.isEmpty ? "Required" : null,
                           ),
@@ -105,7 +109,8 @@ class _AdminAddViewState extends State<AdminAddView> {
                           TextFormField(
                             controller: _phoneController,
                             keyboardType: TextInputType.phone,
-                            style: const TextStyle(fontWeight: FontWeight.bold),
+                            style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+                            cursorColor: const Color(0xFF6366F1),
                             decoration: const InputDecoration(
                               hintText: "00000 00000",
                               prefixText: "+91 ",
@@ -121,7 +126,7 @@ class _AdminAddViewState extends State<AdminAddView> {
                             value: _selectedService,
                             dropdownColor: const Color(0xFF1E293B),
                             borderRadius: BorderRadius.circular(20),
-                            items: ['New Consultation', 'Follow-up']
+                            items: ['New Consultation', 'Follow-up', 'Reports Show', 'General Inquiry']
                                 .map((s) => DropdownMenuItem(value: s, child: Text(s, style: const TextStyle(color: Colors.white))))
                                 .toList(),
                             onChanged: (v) => setState(() => _selectedService = v!),
@@ -134,9 +139,16 @@ class _AdminAddViewState extends State<AdminAddView> {
                             width: double.infinity,
                             child: ElevatedButton(
                               onPressed: _isLoading ? null : _submit,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF6366F1),
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(vertical: 18),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                                elevation: 0,
+                              ),
                               child: _isLoading
                                   ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 3, color: Colors.white))
-                                  : const Text("ADD TO QUEUE"),
+                                  : const Text("ADD TO QUEUE", style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1.5)),
                             ),
                           )
                         ],

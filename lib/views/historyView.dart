@@ -42,6 +42,31 @@ class HistoryView extends StatelessWidget {
             physics: const BouncingScrollPhysics(),
             slivers: [
               _buildAppBar(context, isAdmin),
+
+              // NEW: History Search Bar
+              SliverToBoxAdapter(
+                child: Container(
+                  margin: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.05),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: Colors.white.withOpacity(0.1)),
+                  ),
+                  child: TextField(
+                    onChanged: (val) => queue.updateHistorySearch(val),
+                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                    cursorColor: const Color(0xFF6366F1),
+                    decoration: const InputDecoration(
+                      border: InputBorder.none,
+                      hintText: "Search records...",
+                      hintStyle: TextStyle(color: Colors.white38, fontSize: 13, fontWeight: FontWeight.bold),
+                      icon: Icon(Icons.search_rounded, color: Colors.white38, size: 20),
+                    ),
+                  ),
+                ),
+              ),
+
               StreamBuilder<List<Appointment>>(
                 stream: historyStream,
                 builder: (context, snapshot) {
@@ -215,7 +240,7 @@ class _GlassHistoryCard extends StatelessWidget {
   Color _getStatusColor(AppointmentStatus status) {
     switch (status) {
       case AppointmentStatus.completed: return const Color(0xFF10B981); // Emerald
-      case AppointmentStatus.missed: return const Color(0xFFF59E0B);    // Amber
+      case AppointmentStatus.skipped: return const Color(0xFFF59E0B);   // UPDATED: Amber for Skipped
       case AppointmentStatus.cancelled: return const Color(0xFFF43F5E); // Rose
       default: return const Color(0xFF6366F1);                          // Indigo
     }
@@ -251,7 +276,7 @@ class _StatusIndicator extends StatelessWidget {
     IconData icon;
     switch (status) {
       case AppointmentStatus.completed: icon = Icons.check_circle_rounded; break;
-      case AppointmentStatus.missed: icon = Icons.timer_off_rounded; break;
+      case AppointmentStatus.skipped: icon = Icons.timer_off_rounded; break; // UPDATED
       case AppointmentStatus.cancelled: icon = Icons.cancel_rounded; break;
       default: icon = Icons.hourglass_full_rounded;
     }

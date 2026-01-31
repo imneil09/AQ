@@ -1,5 +1,3 @@
-// lib/views/admin/createClinicView.dart
-
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -31,7 +29,7 @@ class _CreateClinicViewState extends State<CreateClinicView> {
 
     final newClinic = Clinic(
       id: '',
-      doctorId: '',
+      doctorId: '', // Controller will fill this
       name: _nameCtrl.text,
       address: _addrCtrl.text,
       weeklySchedule: _schedule,
@@ -80,6 +78,7 @@ class _CreateClinicViewState extends State<CreateClinicView> {
                         TextField(
                           controller: _nameCtrl,
                           style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+                          cursorColor: const Color(0xFF6366F1),
                           decoration: const InputDecoration(
                             hintText: "Enter clinic name",
                           ),
@@ -89,6 +88,7 @@ class _CreateClinicViewState extends State<CreateClinicView> {
                         TextField(
                           controller: _addrCtrl,
                           style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+                          cursorColor: const Color(0xFF6366F1),
                           decoration: const InputDecoration(
                             hintText: "Enter clinic address",
                           ),
@@ -104,7 +104,13 @@ class _CreateClinicViewState extends State<CreateClinicView> {
                     width: double.infinity,
                     child: ElevatedButton(
                       onPressed: _save,
-                      child: const Text("CREATE CLINIC"),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF6366F1),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 18),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                      ),
+                      child: const Text("CREATE CLINIC", style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1.2)),
                     ),
                   ),
                 ],
@@ -144,6 +150,7 @@ class _CreateClinicViewState extends State<CreateClinicView> {
               isOpen: val,
               startTime: s.startTime,
               maxAppointmentsPerDay: s.maxAppointmentsPerDay,
+              avgConsultationTimeMinutes: s.avgConsultationTimeMinutes, // Preserve this
             )),
           ),
           if (s.isOpen) Padding(
@@ -162,6 +169,7 @@ class _CreateClinicViewState extends State<CreateClinicView> {
                           isOpen: true,
                           startTime: "${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}",
                           maxAppointmentsPerDay: s.maxAppointmentsPerDay,
+                          avgConsultationTimeMinutes: s.avgConsultationTimeMinutes,
                         ));
                       }
                     },
@@ -171,17 +179,21 @@ class _CreateClinicViewState extends State<CreateClinicView> {
                 const SizedBox(width: 16),
                 Expanded(
                   child: TextFormField(
-                    initialValue: s.maxAppointmentsPerDay.toString(),
+                    initialValue: s.avgConsultationTimeMinutes.toString(),
                     keyboardType: TextInputType.number,
                     style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
                     decoration: const InputDecoration(
-                      labelText: "MAX APPT",
+                      labelText: "AVG TIME (MIN)",
+                      labelStyle: TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
                       contentPadding: EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                      enabledBorder: OutlineInputBorder(borderSide: BorderSide.none),
+                      focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: Color(0xFF6366F1))),
                     ),
                     onChanged: (val) => _schedule[day] = ClinicSchedule(
                       isOpen: true,
                       startTime: s.startTime,
-                      maxAppointmentsPerDay: int.tryParse(val) ?? 20,
+                      maxAppointmentsPerDay: s.maxAppointmentsPerDay,
+                      avgConsultationTimeMinutes: int.tryParse(val) ?? 10,
                     ),
                   ),
                 ),
