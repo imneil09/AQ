@@ -85,7 +85,7 @@ class _DoctorDesktopViewState extends State<DoctorDesktopView> {
                             title: Text(p.customerName, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
                             subtitle: Text(p.serviceType, style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 12)),
                             trailing: IconButton(
-                              icon: const Icon(Icons.play_circle_fill_rounded, color: Color(0xFF10B981)),
+                              icon: const Icon(Icons.play_circle_filled_rounded, color: Color(0xFF10B981)),
                               onPressed: () => queue.updateStatus(p.id, AppointmentStatus.active),
                             ),
                           ),

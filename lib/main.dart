@@ -6,7 +6,21 @@ import 'views/authView.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp();
+
+  // MANUAL CONFIGURATION FOR LINUX
+  await Firebase.initializeApp(
+    options: const FirebaseOptions(
+      apiKey:"AIzaSyAiNAGIFURSkqbSj8-K4AW9yT3PM2pwuCk",
+      appId:"1:1074232279880:web:7e450c575004cb4934e97d",
+      messagingSenderId:"1074232279880",
+      projectId:"appqueue-fdef7",
+
+      // Optional but recommended fields:
+      storageBucket:"appqueue-fdef7.firebasestorage.app",
+      authDomain:"appqueue-fdef7.firebaseapp.com",
+    ),
+  );
+
   runApp(const MyApp());
 }
 
@@ -20,15 +34,13 @@ class MyApp extends StatelessWidget {
       child: MaterialApp(
         title: 'Dr. Tudu Clinic',
         debugShowCheckedModeBanner: false,
-        // lib/main.dart
         theme: ThemeData(
           useMaterial3: true,
           brightness: Brightness.dark,
           colorScheme: ColorScheme.fromSeed(
             seedColor: const Color(0xFF6366F1),
-            brightness: Brightness.dark, // Keep this synced
+            brightness: Brightness.dark,
           ),
-          // ...
         ),
         home: const AuthView(),
       ),
