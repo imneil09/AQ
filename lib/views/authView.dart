@@ -7,7 +7,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'customer/customerHomeView.dart';
 import 'admin/adminHomeView.dart';
 import 'doctor/doctorDesktopView.dart';
-// Import the new Desktop View
 
 class AuthView extends StatefulWidget {
   const AuthView({super.key});
@@ -33,35 +32,35 @@ class _AuthViewState extends State<AuthView> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_auth.currentUser != null) {
-        _redirectUser(_auth.currentUser!);
-      }
+      _checkPlatformAndRedirect();
     });
   }
 
-  void _redirectUser(User user) {
+  void _checkPlatformAndRedirect() {
     bool isDesktop = !kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
 
-    if (user.email != null && user.email!.isNotEmpty) {
-      // DOCTOR LOGIN
-      if (isDesktop) {
-        Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const DoctorDesktopView()));
-      } else {
-        Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const AdminHomeView()));
-      }
+    if (isDesktop) {
+      // BYPASS AUTH FOR DESKTOP DOCTORS
+      Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const DoctorDesktopView()));
     } else {
-      // CUSTOMER LOGIN
-      if (isDesktop) {
-        // Security Block: Customers cannot use the Desktop App
-        _auth.signOut();
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Access Denied: Patient App is Mobile Only.")));
-      } else {
-        Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const CustomerHomeView()));
+      // MOBILE: Check if already logged in
+      if (_auth.currentUser != null) {
+        _redirectUser(_auth.currentUser!);
       }
     }
   }
 
+  void _redirectUser(User user) {
+    // Only used for Mobile users now
+    if (user.email != null && user.email!.isNotEmpty) {
+      Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const AdminHomeView()));
+    } else {
+      Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const CustomerHomeView()));
+    }
+  }
+
   // --- DOCTOR LOGIN (EMAIL/PASS) ---
+  // Note: This is now bypassed on Desktop, but kept for potential web admin use
   Future<void> _signInDoctor() async {
     setState(() => _isLoading = true);
     try {
@@ -135,6 +134,14 @@ class _AuthViewState extends State<AuthView> {
     // Detect Platform
     bool isDesktop = !kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
 
+    // If Desktop, show loader while redirecting (UI is bypassed)
+    if (isDesktop) {
+      return const Scaffold(
+        backgroundColor: Color(0xFF0F172A),
+        body: Center(child: CircularProgressIndicator(color: Color(0xFF6366F1))),
+      );
+    }
+
     return Scaffold(
       body: Stack(
         children: [
@@ -150,8 +157,8 @@ class _AuthViewState extends State<AuthView> {
                 child: BackdropFilter(
                   filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
                   child: Container(
-                    // Desktop gets a focused login box, Mobile takes full width
-                    width: isDesktop ? 450 : double.infinity,
+                    // Mobile takes full width
+                    width: double.infinity,
                     padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 56),
                     decoration: BoxDecoration(
                       color: Colors.white.withOpacity(0.05),
@@ -159,7 +166,7 @@ class _AuthViewState extends State<AuthView> {
                       border: Border.all(color: Colors.white.withOpacity(0.08)),
                       boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 30, offset: const Offset(0, 10))],
                     ),
-                    child: isDesktop ? _buildDesktopContent() : _buildMobileContent(),
+                    child: _buildMobileContent(),
                   ),
                 ),
               ),
@@ -183,7 +190,7 @@ class _AuthViewState extends State<AuthView> {
     );
   }
 
-  // DESKTOP UI: Strictly for Doctors (Email/Pass)
+  // DESKTOP UI: Deprecated/Bypassed (Kept for reference or web admin)
   Widget _buildDesktopContent() {
     return Column(
       mainAxisSize: MainAxisSize.min,
