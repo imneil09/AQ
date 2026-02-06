@@ -5,15 +5,15 @@ import 'package:intl/intl.dart';
 import '../../controllers/queueController.dart';
 import '../../models/clinicModel.dart';
 
-class CustomerJoinView extends StatefulWidget {
+class PatientJoinView extends StatefulWidget { // UPDATED: Class Name
   final bool isBooking;
-  const CustomerJoinView({super.key, required this.isBooking});
+  const PatientJoinView({super.key, required this.isBooking});
 
   @override
-  State<CustomerJoinView> createState() => _CustomerJoinViewState();
+  State<PatientJoinView> createState() => _PatientJoinViewState();
 }
 
-class _CustomerJoinViewState extends State<CustomerJoinView> {
+class _PatientJoinViewState extends State<PatientJoinView> { // UPDATED: State Name
   final _nameController = TextEditingController();
   final _phoneController = TextEditingController();
   final _formKey = GlobalKey<FormState>();

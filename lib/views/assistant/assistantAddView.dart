@@ -3,14 +3,14 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../controllers/queueController.dart';
 
-class AdminAddView extends StatefulWidget {
-  const AdminAddView({super.key});
+class AssistantAddView extends StatefulWidget { // UPDATED: Class Name
+  const AssistantAddView({super.key});
 
   @override
-  State<AdminAddView> createState() => _AdminAddViewState();
+  State<AssistantAddView> createState() => _AssistantAddViewState();
 }
 
-class _AdminAddViewState extends State<AdminAddView> {
+class _AssistantAddViewState extends State<AssistantAddView> { // UPDATED: State Name
   final _nameController = TextEditingController();
   final _phoneController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
@@ -23,7 +23,8 @@ class _AdminAddViewState extends State<AdminAddView> {
     setState(() => _isLoading = true);
     try {
       // Calls the controller to add a patient to TODAY's queue
-      await Provider.of<QueueController>(context, listen: false).adminAddWalkIn(
+      // UPDATED: Method name changed to match QueueController
+      await Provider.of<QueueController>(context, listen: false).assistantAddWalkIn(
           _nameController.text,
           _phoneController.text,
           _selectedService

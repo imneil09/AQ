@@ -7,17 +7,15 @@ import 'views/authView.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // MANUAL CONFIGURATION FOR LINUX
+  // FIREBASE CONFIGURATION (WEB, WINDOWS, LINUX)
   await Firebase.initializeApp(
     options: const FirebaseOptions(
-      apiKey:"AIzaSyAiNAGIFURSkqbSj8-K4AW9yT3PM2pwuCk",
-      appId:"1:1074232279880:web:7e450c575004cb4934e97d",
-      messagingSenderId:"1074232279880",
-      projectId:"appqueue-fdef7",
-
-      // Optional but recommended fields:
-      storageBucket:"appqueue-fdef7.firebasestorage.app",
-      authDomain:"appqueue-fdef7.firebaseapp.com",
+      apiKey: "AIzaSyAiNAGIFURSkqbSj8-K4AW9yT3PM2pwuCk",
+      appId: "1:1074232279880:web:7e450c575004cb4934e97d",
+      messagingSenderId: "1074232279880",
+      projectId: "appqueue-fdef7",
+      storageBucket: "appqueue-fdef7.firebasestorage.app",
+      authDomain: "appqueue-fdef7.firebaseapp.com",
     ),
   );
 
@@ -32,7 +30,7 @@ class MyApp extends StatelessWidget {
     return MultiProvider(
       providers: [ChangeNotifierProvider(create: (_) => QueueController())],
       child: MaterialApp(
-        title: 'Dr. Tudu Clinic',
+        title: 'Universal Clinic',
         debugShowCheckedModeBanner: false,
         theme: ThemeData(
           useMaterial3: true,

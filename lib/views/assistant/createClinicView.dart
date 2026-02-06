@@ -29,7 +29,7 @@ class _CreateClinicViewState extends State<CreateClinicView> {
 
     final newClinic = Clinic(
       id: '',
-      doctorId: '', // Controller will fill this
+      doctorId: '', // Controller will fill this with the current user's ID
       name: _nameCtrl.text,
       address: _addrCtrl.text,
       weeklySchedule: _schedule,

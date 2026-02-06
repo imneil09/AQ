@@ -4,8 +4,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'customer/customerHomeView.dart';
-import 'admin/adminHomeView.dart';
+// Ensure these match your actual folder structure/file names
+import 'patient/patientHomeView.dart';
+import 'assistant/assistantHomeView.dart';
 import 'doctor/doctorDesktopView.dart';
 
 class AuthView extends StatefulWidget {
@@ -15,11 +16,11 @@ class AuthView extends StatefulWidget {
 }
 
 class _AuthViewState extends State<AuthView> {
-  // Mobile (OTP) Controllers
+  // Mobile (OTP) Controllers - For Patients
   final _phoneController = TextEditingController();
   final _otpController = TextEditingController();
 
-  // Desktop/Doctor (Email) Controllers
+  // Desktop/Doctor/Assistant (Email) Controllers
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
 
@@ -31,37 +32,52 @@ class _AuthViewState extends State<AuthView> {
   @override
   void initState() {
     super.initState();
+    // Check if user is already logged in
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _checkPlatformAndRedirect();
+      if (_auth.currentUser != null) {
+        _redirectUser(_auth.currentUser!);
+      }
     });
   }
 
-  void _checkPlatformAndRedirect() {
-    bool isDesktop = !kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
+  /// Helper to determine if we are on a "Doctor Portal" platform (Web or Desktop)
+  bool get _isDoctorPlatform {
+    if (kIsWeb) return true;
+    try {
+      return Platform.isWindows || Platform.isMacOS || Platform.isLinux;
+    } catch (e) {
+      return false;
+    }
+  }
 
-    if (isDesktop) {
-      // BYPASS AUTH FOR DESKTOP DOCTORS
-      Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const DoctorDesktopView()));
+  /// ROUTING LOGIC
+  /// Doctor -> Email Login on Desktop/Web
+  /// Assistant -> Email Login on Mobile
+  /// Patient -> Phone Login on Mobile
+  void _redirectUser(User user) {
+    if (user.email != null && user.email!.isNotEmpty) {
+      // EMAIL USER (Doctor or Assistant)
+      if (_isDoctorPlatform) {
+        // Desktop/Web -> Doctor View
+        Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const DoctorDesktopView()));
+      } else {
+        // Mobile -> Assistant View
+        Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const AssistantHomeView()));
+      }
     } else {
-      // MOBILE: Check if already logged in
-      if (_auth.currentUser != null) {
-        _redirectUser(_auth.currentUser!);
+      // PHONE USER (Patient)
+      if (_isDoctorPlatform) {
+        // Security: Prevent patients from logging into the doctor portal
+        _auth.signOut();
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Patients must use the Mobile App.")));
+      } else {
+        Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const PatientHomeView()));
       }
     }
   }
 
-  void _redirectUser(User user) {
-    // Only used for Mobile users now
-    if (user.email != null && user.email!.isNotEmpty) {
-      Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const AdminHomeView()));
-    } else {
-      Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const CustomerHomeView()));
-    }
-  }
-
-  // --- DOCTOR LOGIN (EMAIL/PASS) ---
-  // Note: This is now bypassed on Desktop, but kept for potential web admin use
-  Future<void> _signInDoctor() async {
+  // --- DOCTOR/ASSISTANT LOGIN (EMAIL/PASS) ---
+  Future<void> _signInWithEmail() async {
     setState(() => _isLoading = true);
     try {
       final cred = await _auth.signInWithEmailAndPassword(
@@ -78,7 +94,7 @@ class _AuthViewState extends State<AuthView> {
     }
   }
 
-  // --- CUSTOMER LOGIN (OTP) ---
+  // --- PATIENT LOGIN (OTP) ---
   Future<void> _verifyPhone() async {
     if (_phoneController.text.length < 10) return;
     setState(() => _isLoading = true);
@@ -120,7 +136,7 @@ class _AuthViewState extends State<AuthView> {
         await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
           'uid': user.uid,
           'phoneNumber': user.phoneNumber,
-          'role': 'customer',
+          'role': 'patient',
           'createdAt': FieldValue.serverTimestamp()
         });
       }
@@ -131,16 +147,9 @@ class _AuthViewState extends State<AuthView> {
   // --- BUILD METHOD ---
   @override
   Widget build(BuildContext context) {
-    // Detect Platform
-    bool isDesktop = !kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
-
-    // If Desktop, show loader while redirecting (UI is bypassed)
-    if (isDesktop) {
-      return const Scaffold(
-        backgroundColor: Color(0xFF0F172A),
-        body: Center(child: CircularProgressIndicator(color: Color(0xFF6366F1))),
-      );
-    }
+    // If Web or Desktop -> Show Doctor Login UI
+    // If Mobile -> Show Patient Login UI (with hidden Assistant access)
+    bool showDoctorUI = _isDoctorPlatform;
 
     return Scaffold(
       body: Stack(
@@ -157,8 +166,8 @@ class _AuthViewState extends State<AuthView> {
                 child: BackdropFilter(
                   filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
                   child: Container(
-                    // Mobile takes full width
-                    width: double.infinity,
+                    // Desktop gets a focused login box, Mobile takes full width
+                    width: showDoctorUI ? 450 : double.infinity,
                     padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 56),
                     decoration: BoxDecoration(
                       color: Colors.white.withOpacity(0.05),
@@ -166,22 +175,22 @@ class _AuthViewState extends State<AuthView> {
                       border: Border.all(color: Colors.white.withOpacity(0.08)),
                       boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 30, offset: const Offset(0, 10))],
                     ),
-                    child: _buildMobileContent(),
+                    child: showDoctorUI ? _buildDesktopContent() : _buildMobileContent(),
                   ),
                 ),
               ),
             ),
           ),
 
-          // Footer Credit (Professional)
+          // Footer Credit
           Positioned(
             bottom: 24, left: 0, right: 0,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text("Secure Health Portal • v1.0", style: TextStyle(color: Colors.white.withOpacity(0.2), fontSize: 12, fontWeight: FontWeight.w600)),
+                Text("Secure Health Portal • v2.0", style: TextStyle(color: Colors.white.withOpacity(0.2), fontSize: 12, fontWeight: FontWeight.w600)),
                 const SizedBox(height: 8),
-                Text("Crafted thoughtfully in India by Sagar Bhowmik 🇮🇳", style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 11, fontWeight: FontWeight.w500, letterSpacing: 0.5)),
+                Text("Universal Clinic App", style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 11, fontWeight: FontWeight.w500, letterSpacing: 0.5)),
               ],
             ),
           )
@@ -190,7 +199,7 @@ class _AuthViewState extends State<AuthView> {
     );
   }
 
-  // DESKTOP UI: Deprecated/Bypassed (Kept for reference or web admin)
+  // DESKTOP UI: Doctors (Email/Pass)
   Widget _buildDesktopContent() {
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -203,7 +212,7 @@ class _AuthViewState extends State<AuthView> {
         const SizedBox(height: 32),
         const Text("Doctor's Desk", style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800, letterSpacing: -0.5, color: Colors.white)),
         const SizedBox(height: 12),
-        Text("Authorized Personnel Only", style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 14)),
+        Text("Web & Desktop Access", style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 14)),
         const SizedBox(height: 48),
         _glassTextField(_emailController, "Email ID", false),
         const SizedBox(height: 16),
@@ -217,7 +226,7 @@ class _AuthViewState extends State<AuthView> {
                 padding: const EdgeInsets.symmetric(vertical: 20),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))
             ),
-            onPressed: _isLoading ? null : _signInDoctor,
+            onPressed: _isLoading ? null : _signInWithEmail,
             child: _isLoading
                 ? const SizedBox(height: 24, width: 24, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                 : const Text("ACCESS DASHBOARD", style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1)),
@@ -227,13 +236,13 @@ class _AuthViewState extends State<AuthView> {
     );
   }
 
-  // MOBILE UI: Patients (Phone) + Hidden Admin
+  // MOBILE UI: Patients (Phone) + Hidden Assistant Access
   Widget _buildMobileContent() {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         GestureDetector(
-          onLongPress: _showAdminLoginDialog, // Hidden access on mobile
+          onLongPress: _showAssistantLoginDialog, // Hidden access for Assistants on Mobile
           child: Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(color: const Color(0xFF10B981).withOpacity(0.1), shape: BoxShape.circle, border: Border.all(color: const Color(0xFF10B981).withOpacity(0.2))),
@@ -302,7 +311,8 @@ class _AuthViewState extends State<AuthView> {
     );
   }
 
-  void _showAdminLoginDialog() {
+  // DIALOG: Assistant Access on Mobile (Hidden)
+  void _showAssistantLoginDialog() {
     final eCtrl = TextEditingController();
     final pCtrl = TextEditingController();
     showDialog(
@@ -311,7 +321,7 @@ class _AuthViewState extends State<AuthView> {
         filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
         child: AlertDialog(
           backgroundColor: const Color(0xFF1E293B).withOpacity(0.9),
-          title: const Text("Mobile Admin Access", style: TextStyle(color: Colors.white)),
+          title: const Text("Assistant Access", style: TextStyle(color: Colors.white)),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -326,6 +336,7 @@ class _AuthViewState extends State<AuthView> {
                 style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF6366F1)),
                 onPressed: () async {
                   try {
+                    // Reuse standard email login logic
                     final cred = await _auth.signInWithEmailAndPassword(email: eCtrl.text.trim(), password: pCtrl.text.trim());
                     if (mounted && cred.user != null) {
                       Navigator.pop(context);

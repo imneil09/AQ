@@ -6,13 +6,16 @@ import '../controllers/queueController.dart';
 import '../models/appoinmentModel.dart';
 
 class HistoryView extends StatelessWidget {
-  final bool isAdmin;
+  final bool isAdmin; // True for Assistant/Doctor, False for Patient
   const HistoryView({super.key, required this.isAdmin});
 
   @override
   Widget build(BuildContext context) {
     final queue = Provider.of<QueueController>(context);
-    final historyStream = isAdmin ? queue.adminFullHistory : queue.customerHistory;
+
+    // UPDATED: Use renamed streams
+    // Assistant/Doctor gets full history, Patient gets personal history
+    final historyStream = isAdmin ? queue.assistantFullHistory : queue.patientHistory;
 
     return Scaffold(
       extendBodyBehindAppBar: true,
@@ -43,7 +46,7 @@ class HistoryView extends StatelessWidget {
             slivers: [
               _buildAppBar(context, isAdmin),
 
-              // NEW: History Search Bar
+              // History Search Bar
               SliverToBoxAdapter(
                 child: Container(
                   margin: const EdgeInsets.fromLTRB(20, 0, 20, 20),
@@ -240,7 +243,7 @@ class _GlassHistoryCard extends StatelessWidget {
   Color _getStatusColor(AppointmentStatus status) {
     switch (status) {
       case AppointmentStatus.completed: return const Color(0xFF10B981); // Emerald
-      case AppointmentStatus.skipped: return const Color(0xFFF59E0B);   // UPDATED: Amber for Skipped
+      case AppointmentStatus.skipped: return const Color(0xFFF59E0B);   // Amber for Skipped
       case AppointmentStatus.cancelled: return const Color(0xFFF43F5E); // Rose
       default: return const Color(0xFF6366F1);                          // Indigo
     }
@@ -276,7 +279,7 @@ class _StatusIndicator extends StatelessWidget {
     IconData icon;
     switch (status) {
       case AppointmentStatus.completed: icon = Icons.check_circle_rounded; break;
-      case AppointmentStatus.skipped: icon = Icons.timer_off_rounded; break; // UPDATED
+      case AppointmentStatus.skipped: icon = Icons.timer_off_rounded; break;
       case AppointmentStatus.cancelled: icon = Icons.cancel_rounded; break;
       default: icon = Icons.hourglass_full_rounded;
     }

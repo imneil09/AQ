@@ -6,16 +6,16 @@ import 'package:intl/intl.dart';
 import '../../controllers/queueController.dart';
 import '../../models/appoinmentModel.dart';
 import '../historyView.dart';
-import 'customerJoinView.dart';
+import 'patientJoinView.dart'; // UPDATED: Renamed Import
 import '../authView.dart';
 
-class CustomerHomeView extends StatefulWidget {
-  const CustomerHomeView({super.key});
+class PatientHomeView extends StatefulWidget { // UPDATED: Class Name
+  const PatientHomeView({super.key});
   @override
-  State<CustomerHomeView> createState() => _CustomerHomeViewState();
+  State<PatientHomeView> createState() => _PatientHomeViewState();
 }
 
-class _CustomerHomeViewState extends State<CustomerHomeView> {
+class _PatientHomeViewState extends State<PatientHomeView> { // UPDATED: State Name
   Future<void> _logout() async {
     await FirebaseAuth.instance.signOut();
     if (mounted) Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (_) => const AuthView()), (r) => false);
@@ -108,7 +108,8 @@ class _CustomerHomeViewState extends State<CustomerHomeView> {
               if (isHistory) {
                 Navigator.push(context, MaterialPageRoute(builder: (_) => const HistoryView(isAdmin: false)));
               } else {
-                Navigator.push(context, MaterialPageRoute(builder: (_) => CustomerJoinView(isBooking: isBooking)));
+                // UPDATED: Navigation to PatientJoinView
+                Navigator.push(context, MaterialPageRoute(builder: (_) => PatientJoinView(isBooking: isBooking)));
               }
             },
             leading: Container(

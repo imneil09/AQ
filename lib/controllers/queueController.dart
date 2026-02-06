@@ -278,7 +278,8 @@ class QueueController extends ChangeNotifier {
     }
   }
 
-  Future<void> adminAddWalkIn(String name, String phone, String service) async {
+  // RENAMED: was adminAddWalkIn
+  Future<void> assistantAddWalkIn(String name, String phone, String service) async {
     if (selectedClinic == null) return;
     // Walk-ins are always for Today
     await bookAppointment(
@@ -292,8 +293,9 @@ class QueueController extends ChangeNotifier {
 
   // --- History Streams ---
 
-  /// Stream for Customer: Returns all appointments linked to their phone
-  Stream<List<Appointment>> get customerHistory {
+  /// Stream for Patient: Returns all appointments linked to their phone
+  // RENAMED: was customerHistory
+  Stream<List<Appointment>> get patientHistory {
     final user = _auth.currentUser;
     if (user == null || user.phoneNumber == null) return Stream.value([]);
 
@@ -312,8 +314,9 @@ class QueueController extends ChangeNotifier {
     });
   }
 
-  /// Stream for Admin: Returns all appointments for the selected clinic
-  Stream<List<Appointment>> get adminFullHistory {
+  /// Stream for Assistant/Admin: Returns all appointments for the selected clinic
+  // RENAMED: was adminFullHistory
+  Stream<List<Appointment>> get assistantFullHistory {
     if (selectedClinic == null) return Stream.value([]);
 
     return _db
@@ -332,7 +335,7 @@ class QueueController extends ChangeNotifier {
     });
   }
 
-  // Helper for "My Visit" in Customer Home
+  // Helper for "My Visit" in Patient Home
   Appointment? get myAppointment {
     final user = _auth.currentUser;
     if (user == null) return null;

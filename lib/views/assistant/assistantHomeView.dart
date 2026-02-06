@@ -7,18 +7,18 @@ import '../../models/appoinmentModel.dart';
 import '../../models/clinicModel.dart';
 import '../../widgets/appointment.dart';
 import '../historyView.dart';
-import 'adminAddView.dart';
+import 'assistantAddView.dart'; // UPDATED: Renamed Import
 import 'createClinicView.dart';
 import '../authView.dart';
 
-class AdminHomeView extends StatefulWidget {
-  const AdminHomeView({super.key});
+class AssistantHomeView extends StatefulWidget { // UPDATED: Class Name
+  const AssistantHomeView({super.key});
 
   @override
-  State<AdminHomeView> createState() => _AdminHomeViewState();
+  State<AssistantHomeView> createState() => _AssistantHomeViewState();
 }
 
-class _AdminHomeViewState extends State<AdminHomeView>
+class _AssistantHomeViewState extends State<AssistantHomeView> // UPDATED: State Name
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
 
@@ -65,7 +65,7 @@ class _AdminHomeViewState extends State<AdminHomeView>
               children: [
                 _buildMetricsHeader(queue),
 
-                // NEW: Live Search Bar (Matches Design)
+                // Live Search Bar
                 Container(
                   margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
                   padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 2),
@@ -95,7 +95,7 @@ class _AdminHomeViewState extends State<AdminHomeView>
                     children: [
                       _buildList(queue, queue.waitingList),
                       _buildList(queue, queue.activeQueue),
-                      _buildList(queue, queue.skippedList), // Updated to skippedList
+                      _buildList(queue, queue.skippedList),
                     ],
                   ),
                 ),
@@ -108,7 +108,7 @@ class _AdminHomeViewState extends State<AdminHomeView>
           ? FloatingActionButton.extended(
         onPressed: () => Navigator.push(
           context,
-          MaterialPageRoute(builder: (_) => const AdminAddView()),
+          MaterialPageRoute(builder: (_) => const AssistantAddView()), // UPDATED: Navigation
         ),
         label: const Text(
           "WALK-IN",
@@ -173,7 +173,7 @@ class _AdminHomeViewState extends State<AdminHomeView>
           ),
         ),
 
-        // NEW: Emergency Close Option
+        // Emergency Close Option
         PopupMenuButton<String>(
           icon: const Icon(Icons.more_vert_rounded, color: Colors.white70),
           color: const Color(0xFF1E293B),
@@ -325,7 +325,7 @@ class _AdminHomeViewState extends State<AdminHomeView>
         tabs: const [
           Tab(text: "WAITING"),
           Tab(text: "ACTIVE"),
-          Tab(text: "SKIPPED"), // UPDATED: Changed from MISSED to SKIPPED
+          Tab(text: "SKIPPED"),
         ],
       ),
     );
@@ -362,10 +362,9 @@ class _AdminHomeViewState extends State<AdminHomeView>
         return AppointmentCard(
           appointment: appt,
           isAdmin: true,
-          // NEW: Updated Logic for Recall and Next
           onStatusNext: () {
             if (appt.status == AppointmentStatus.skipped) {
-              queue.recallPatient(appt.id); // Skipped -> Waiting
+              queue.recallPatient(appt.id);
             } else if (appt.status == AppointmentStatus.waiting) {
               queue.updateStatus(appt.id, AppointmentStatus.active);
             } else if (appt.status == AppointmentStatus.active) {
