@@ -1,7 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <application
-        android:label="Dr. Tudu Clinic"
+        android:label="Dr. Roy Clinic"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
 
