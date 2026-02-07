@@ -14,18 +14,36 @@ class QueueController extends ChangeNotifier {
   List<Appointment> _todayQueue = [];
   Clinic? selectedClinic;
 
+  // Doctor Status
+  bool _isOnBreak = false; // "Tea Break" state
+
   // Search States
   String _liveSearchQuery = "";
   String _historySearchQuery = "";
 
-  // Getters for Search
+  // Getters
   String get liveSearchQuery => _liveSearchQuery;
   String get historySearchQuery => _historySearchQuery;
+  bool get isOnBreak => _isOnBreak;
 
   QueueController() {
     _fetchClinics();
-    // Run cleanup on startup to handle any leftovers from yesterday immediately
     _runAutoCleanup();
+  }
+
+  // --- Doctor Actions ---
+
+  void toggleBreak() {
+    _isOnBreak = !_isOnBreak;
+    notifyListeners();
+  }
+
+  /// LOGOUT ACTION
+  Future<void> logout() async {
+    // We sign out from Firebase.
+    // The View is responsible for navigating to AuthView immediately after awaiting this.
+    await _auth.signOut();
+    notifyListeners();
   }
 
   // --- Search Logic ---
@@ -46,7 +64,6 @@ class QueueController extends ChangeNotifier {
           .map((doc) => Clinic.fromMap(doc.data(), doc.id))
           .toList();
 
-      // Auto-select first clinic if none selected
       if (selectedClinic == null && clinics.isNotEmpty) {
         selectClinic(clinics.first);
       }
@@ -57,7 +74,7 @@ class QueueController extends ChangeNotifier {
   void selectClinic(Clinic clinic) {
     selectedClinic = clinic;
     _listenToQueue(clinic.id);
-    _runAutoCleanup(); // Ensure cleanup runs when switching clinics
+    _runAutoCleanup();
     notifyListeners();
   }
 
@@ -68,26 +85,20 @@ class QueueController extends ChangeNotifier {
     await _db.collection('clinics').add(data);
   }
 
-  // --- QUEUE ACTIONS (Recall, Status, Emergency) ---
+  // --- QUEUE ACTIONS ---
 
-  /// RECALL: Moves a skipped patient back to 'waiting'.
-  /// Since the list is sorted by Token Number, and the recalled patient has an
-  /// earlier token than current waiting patients, they will automatically appear
-  /// at the TOP of the waiting list.
   Future<void> recallPatient(String id) async {
     await _db.collection('appointments').doc(id).update({
       'status': AppointmentStatus.waiting.name,
     });
   }
 
-  /// UPDATE STATUS: Handles moving between Waiting -> Active -> Completed/Skipped
   Future<void> updateStatus(String id, AppointmentStatus newStatus) async {
     await _db.collection('appointments').doc(id).update({
       'status': newStatus.name,
     });
   }
 
-  /// EMERGENCY CLOSE: Cancels all 'active', 'waiting', or 'skipped' for today
   Future<void> emergencyClose() async {
     if (selectedClinic == null) return;
     WriteBatch batch = _db.batch();
@@ -106,9 +117,6 @@ class QueueController extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// AUTO CLEANUP: Runs invisibly.
-  /// Finds any appointment strictly BEFORE today (12:00 AM) that is still open
-  /// (waiting/active/skipped) and marks it as Cancelled.
   Future<void> _runAutoCleanup() async {
     if (selectedClinic == null) return;
     final now = DateTime.now();
@@ -127,7 +135,6 @@ class QueueController extends ChangeNotifier {
         batch.update(doc.reference, {'status': AppointmentStatus.cancelled.name});
       }
       await batch.commit();
-      debugPrint("Auto-Cleanup: Cancelled ${leftovers.docs.length} expired appointments.");
     }
   }
 
@@ -137,13 +144,11 @@ class QueueController extends ChangeNotifier {
     final now = DateTime.now();
     final todayStart = DateTime(now.year, now.month, now.day);
 
-    // Queries appointments where appointmentDate == TODAY.
-    // This includes appointments booked days ago for today ("earlier appointment").
     _db
         .collection('appointments')
         .where('clinicId', isEqualTo: clinicId)
         .where('appointmentDate', isEqualTo: Timestamp.fromDate(todayStart))
-        .orderBy('tokenNumber') // Ensures Recalled (lower token) are at top
+        .orderBy('tokenNumber')
         .snapshots()
         .listen((snapshot) {
 
@@ -151,9 +156,7 @@ class QueueController extends ChangeNotifier {
           .map((doc) => Appointment.fromMap(doc.data(), doc.id))
           .toList();
 
-      // Calculate Estimated Time locally
       _todayQueue = _calculateEstimatedTimes(rawList);
-
       notifyListeners();
     });
   }
@@ -161,24 +164,25 @@ class QueueController extends ChangeNotifier {
   List<Appointment> _calculateEstimatedTimes(List<Appointment> list) {
     if (selectedClinic == null) return list;
 
-    // Get schedule info
     final dayName = DateFormat('EEEE').format(DateTime.now());
     final schedule = selectedClinic!.weeklySchedule[dayName];
 
     if (schedule == null || !schedule.isOpen) return list;
 
-    // Parse start time
     final parts = schedule.startTime.split(':');
     final startHour = int.parse(parts[0]);
     final startMin = int.parse(parts[1]);
     final now = DateTime.now();
 
-    // Base rolling time starts at clinic opening or Now (whichever is later)
     DateTime rollingTime = DateTime(now.year, now.month, now.day, startHour, startMin);
     if (rollingTime.isBefore(now)) rollingTime = now;
 
+    // Delay estimates if on break
+    if (_isOnBreak) {
+      rollingTime = rollingTime.add(const Duration(minutes: 15));
+    }
+
     return list.map((appt) {
-      // Create a copy to modify estimatedTime without mutating original unexpectedly
       final newAppt = Appointment(
         id: appt.id,
         clinicId: appt.clinicId,
@@ -194,24 +198,18 @@ class QueueController extends ChangeNotifier {
       );
 
       if (newAppt.status == AppointmentStatus.active) {
-        newAppt.estimatedTime = now; // Active is Now
-        // Active patient consumes time
+        newAppt.estimatedTime = now;
         rollingTime = rollingTime.add(Duration(minutes: schedule.avgConsultationTimeMinutes));
       } else if (newAppt.status == AppointmentStatus.waiting) {
         newAppt.estimatedTime = rollingTime;
-        // Waiting patient consumes time
         rollingTime = rollingTime.add(Duration(minutes: schedule.avgConsultationTimeMinutes));
       }
-      // Skipped/Completed/Cancelled do not get a future estimated time
-      // and do not add to the rolling time for subsequent waiting patients.
-
       return newAppt;
     }).toList();
   }
 
-  // --- UI Helpers (Getters) ---
+  // --- UI Helpers ---
 
-  // Helper to filter the queue based on Search Text
   List<Appointment> get _searchedQueue {
     if (_liveSearchQuery.isEmpty) return _todayQueue;
     return _todayQueue.where((a) =>
@@ -221,7 +219,6 @@ class QueueController extends ChangeNotifier {
     ).toList();
   }
 
-  // Public Lists for the TabBarView
   List<Appointment> get waitingList => _searchedQueue.where((a) => a.status == AppointmentStatus.waiting).toList();
   List<Appointment> get activeQueue => _searchedQueue.where((a) => a.status == AppointmentStatus.active).toList();
   List<Appointment> get skippedList => _searchedQueue.where((a) => a.status == AppointmentStatus.skipped).toList();
@@ -238,7 +235,6 @@ class QueueController extends ChangeNotifier {
     final cleanDate = DateTime(date.year, date.month, date.day);
 
     try {
-      // Get the last token number for that specific date to increment
       final qSnap = await _db
           .collection('appointments')
           .where('clinicId', isEqualTo: clinicId)
@@ -278,10 +274,8 @@ class QueueController extends ChangeNotifier {
     }
   }
 
-  // RENAMED: was adminAddWalkIn
   Future<void> assistantAddWalkIn(String name, String phone, String service) async {
     if (selectedClinic == null) return;
-    // Walk-ins are always for Today
     await bookAppointment(
       name: name,
       phone: phone,
@@ -292,9 +286,6 @@ class QueueController extends ChangeNotifier {
   }
 
   // --- History Streams ---
-
-  /// Stream for Patient: Returns all appointments linked to their phone
-  // RENAMED: was customerHistory
   Stream<List<Appointment>> get patientHistory {
     final user = _auth.currentUser;
     if (user == null || user.phoneNumber == null) return Stream.value([]);
@@ -314,8 +305,6 @@ class QueueController extends ChangeNotifier {
     });
   }
 
-  /// Stream for Assistant/Admin: Returns all appointments for the selected clinic
-  // RENAMED: was adminFullHistory
   Stream<List<Appointment>> get assistantFullHistory {
     if (selectedClinic == null) return Stream.value([]);
 
@@ -335,13 +324,11 @@ class QueueController extends ChangeNotifier {
     });
   }
 
-  // Helper for "My Visit" in Patient Home
   Appointment? get myAppointment {
     final user = _auth.currentUser;
     if (user == null) return null;
     try {
-      if (user.email != null && user.email!.isNotEmpty) return null; // Doctors don't have "My Visit"
-      // Find the first relevant appointment in today's queue
+      if (user.email != null && user.email!.isNotEmpty) return null;
       return _todayQueue.firstWhere((a) => a.phoneNumber == user.phoneNumber);
     } catch (e) {
       return null;

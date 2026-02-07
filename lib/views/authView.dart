@@ -1,11 +1,11 @@
 import 'dart:ui';
-import 'package:flutter/foundation.dart'; // Use this instead of dart:io
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'patient/patientHomeView.dart';
 import 'assistant/assistantHomeView.dart';
-import 'doctor/doctorDesktopView.dart';
+import 'doctor/doctor_dashboard.dart';
 
 class AuthView extends StatefulWidget {
   const AuthView({super.key});
@@ -37,7 +37,6 @@ class _AuthViewState extends State<AuthView> {
   /// WEB-SAFE PLATFORM CHECK
   bool get _isDoctorPlatform {
     if (kIsWeb) return true;
-    // Use defaultTargetPlatform instead of Platform.isWindows to avoid dart:io errors on Web
     return defaultTargetPlatform == TargetPlatform.windows ||
         defaultTargetPlatform == TargetPlatform.macOS ||
         defaultTargetPlatform == TargetPlatform.linux;
@@ -46,7 +45,8 @@ class _AuthViewState extends State<AuthView> {
   void _redirectUser(User user) {
     if (user.email != null && user.email!.isNotEmpty) {
       if (_isDoctorPlatform) {
-        Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const DoctorDesktopView()));
+        // Using pushReplacement is fine here as it swaps the route
+        Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const DoctorDashboard()));
       } else {
         Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const AssistantHomeView()));
       }
@@ -139,14 +139,17 @@ class _AuthViewState extends State<AuthView> {
 
           Center(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.all(24),
+              // Added padding at bottom to prevent card from overlapping footer on small screens
+              padding: const EdgeInsets.only(left: 24, right: 24, top: 24, bottom: 80),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(32),
                 child: BackdropFilter(
                   filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
                   child: Container(
-                    width: showDoctorUI ? 450 : double.infinity,
-                    padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 56),
+                    // REDUCED WIDTH from 450 to 380 ("Little Small")
+                    width: showDoctorUI ? 380 : double.infinity,
+                    // REDUCED PADDING from 56 to 40
+                    padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 40),
                     decoration: BoxDecoration(
                       color: Colors.white.withOpacity(0.05),
                       borderRadius: BorderRadius.circular(32),
@@ -159,12 +162,18 @@ class _AuthViewState extends State<AuthView> {
               ),
             ),
           ),
+
+          // FOOTER: Positioned at bottom, but safe due to ScrollView padding
           Positioned(
-            bottom: 24, left: 0, right: 0,
+            bottom: 22, left: 0, right: 0,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text("Universal Clinic Portal • v2.0", style: TextStyle(color: Colors.white.withOpacity(0.2), fontSize: 12, fontWeight: FontWeight.w600)),
+                Text(
+                  "Designed & Developed by Sagar Bhowmik • Proudly Made in India 🇮🇳",
+                  style: TextStyle(color: Colors.white.withOpacity(0.2), fontSize: 12, fontWeight: FontWeight.w600),
+                  textAlign: TextAlign.center,
+                ),
               ],
             ),
           )
@@ -178,31 +187,59 @@ class _AuthViewState extends State<AuthView> {
       mainAxisSize: MainAxisSize.min,
       children: [
         Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(color: const Color(0xFF6366F1).withOpacity(0.1), shape: BoxShape.circle, border: Border.all(color: const Color(0xFF6366F1).withOpacity(0.2))),
-          child: const Icon(Icons.monitor_heart_outlined, size: 48, color: Color(0xFF6366F1)),
+          padding: const EdgeInsets.all(16), // Reduced padding
+          decoration: BoxDecoration(
+              color: const Color(0xFF6366F1).withOpacity(0.1),
+              shape: BoxShape.circle,
+              border: Border.all(color: const Color(0xFF6366F1).withOpacity(0.2))
+          ),
+          child: const Icon(Icons.medical_services_outlined, size: 40, color: Color(0xFF6366F1)), // Reduced Icon Size
         ),
-        const SizedBox(height: 32),
-        const Text("Doctor's Desk", style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800, letterSpacing: -0.5, color: Colors.white)),
-        const SizedBox(height: 12),
-        Text("Web & Desktop Access", style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 14)),
-        const SizedBox(height: 48),
+        const SizedBox(height: 24),
+
+        // --- DOCTOR INFORMATION HEADER ---
+        const Text(
+            "Dr. Shankar Deb Roy",
+            style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, letterSpacing: -0.5, color: Colors.white)
+        ),
+        const SizedBox(height: 8),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.05),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.white12)
+          ),
+          child: const Text("MS (Ortho) • Reg No. 1040 (TSMC)", style: TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.bold)),
+        ),
+        const SizedBox(height: 8),
+        Text(
+            "Assoc. Professor, Dept. of Orthopaedics",
+            style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 12)
+        ),
+        Text(
+            "Agartala Govt. Medical College",
+            style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 12)
+        ),
+        // ---------------------------------
+
+        const SizedBox(height: 32), // Reduced spacing
         _glassTextField(_emailController, "Email ID", false),
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
         _glassTextField(_passwordController, "Password", true),
-        const SizedBox(height: 32),
+        const SizedBox(height: 24),
         SizedBox(
           width: double.infinity,
           child: ElevatedButton(
             style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF6366F1),
-                padding: const EdgeInsets.symmetric(vertical: 20),
+                padding: const EdgeInsets.symmetric(vertical: 18),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))
             ),
             onPressed: _isLoading ? null : _signInWithEmail,
             child: _isLoading
-                ? const SizedBox(height: 24, width: 24, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                : const Text("ACCESS DASHBOARD", style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1)),
+                ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                : const Text("ACCESS DASHBOARD", style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1, fontSize: 13)),
           ),
         ),
       ],
@@ -272,10 +309,10 @@ class _AuthViewState extends State<AuthView> {
       child: TextField(
         controller: ctrl,
         obscureText: obscure,
-        style: const TextStyle(fontSize: 16, color: Colors.white),
+        style: const TextStyle(fontSize: 14, color: Colors.white), // Slightly smaller text
         decoration: InputDecoration(
           labelText: label,
-          labelStyle: const TextStyle(color: Colors.white38),
+          labelStyle: const TextStyle(color: Colors.white38, fontSize: 13),
           border: InputBorder.none,
           contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         ),

@@ -38,7 +38,7 @@ class MyApp extends StatelessWidget {
     return MultiProvider(
       providers: [ChangeNotifierProvider(create: (_) => QueueController())],
       child: MaterialApp(
-        title: 'Universal Clinic',
+        title: 'Dr. Roy',
         debugShowCheckedModeBanner: false,
         theme: ThemeData(
           useMaterial3: true,
