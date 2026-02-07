@@ -1,15 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart'; // Import for kIsWeb
 import 'controllers/queueController.dart';
 import 'views/authView.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // FIX: Check if Firebase is already initialized to avoid the "Duplicate App" error.
-  // On Android, google-services.json initializes it automatically.
-  if (Firebase.apps.isEmpty) {
+  // FIX: Handle "Duplicate App" error by separating logic for Web and Native (Android/iOS)
+  if (kIsWeb) {
+    // Web requires manual options or a script in index.html
     await Firebase.initializeApp(
       options: const FirebaseOptions(
         apiKey: "AIzaSyAiNAGIFURSkqbSj8-K4AW9yT3PM2pwuCk",
@@ -20,6 +21,10 @@ void main() async {
         authDomain: "appqueue-fdef7.firebaseapp.com",
       ),
     );
+  } else {
+    // Android and iOS automatically initialize using google-services.json / GoogleService-Info.plist
+    // Calling this without options connects to the already initialized native instance.
+    await Firebase.initializeApp();
   }
 
   runApp(const MyApp());
