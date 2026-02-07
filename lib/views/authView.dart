@@ -45,7 +45,6 @@ class _AuthViewState extends State<AuthView> {
   void _redirectUser(User user) {
     if (user.email != null && user.email!.isNotEmpty) {
       if (_isDoctorPlatform) {
-        // Using pushReplacement is fine here as it swaps the route
         Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const DoctorDashboard()));
       } else {
         Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const AssistantHomeView()));
@@ -137,46 +136,47 @@ class _AuthViewState extends State<AuthView> {
           Positioned(top: -100, right: -50, child: _BlurCircle(color: const Color(0xFF6366F1).withOpacity(0.15), size: 400)),
           Positioned(bottom: -50, left: -50, child: _BlurCircle(color: const Color(0xFFF43F5E).withOpacity(0.1), size: 300)),
 
-          Center(
-            child: SingleChildScrollView(
-              // Added padding at bottom to prevent card from overlapping footer on small screens
-              padding: const EdgeInsets.only(left: 24, right: 24, top: 24, bottom: 80),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(32),
-                child: BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-                  child: Container(
-                    // REDUCED WIDTH from 450 to 380 ("Little Small")
-                    width: showDoctorUI ? 380 : double.infinity,
-                    // REDUCED PADDING from 56 to 40
-                    padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 40),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.05),
-                      borderRadius: BorderRadius.circular(32),
-                      border: Border.all(color: Colors.white.withOpacity(0.08)),
-                      boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 30, offset: const Offset(0, 10))],
+          SafeArea(
+            child: Column(
+              children: [
+                Expanded(
+                  child: Center(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(32),
+                        child: BackdropFilter(
+                          filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                          child: Container(
+                            width: showDoctorUI ? 380 : double.infinity,
+                            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 40),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.05),
+                              borderRadius: BorderRadius.circular(32),
+                              border: Border.all(color: Colors.white.withOpacity(0.08)),
+                            ),
+                            child: showDoctorUI ? _buildDesktopContent() : _buildMobileContent(),
+                          ),
+                        ),
+                      ),
                     ),
-                    child: showDoctorUI ? _buildDesktopContent() : _buildMobileContent(),
                   ),
                 ),
-              ),
-            ),
-          ),
-
-          // FOOTER: Positioned at bottom, but safe due to ScrollView padding
-          Positioned(
-            bottom: 22, left: 0, right: 0,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  "Designed & Developed by Sagar Bhowmik • Proudly Made in India 🇮🇳",
-                  style: TextStyle(color: Colors.white.withOpacity(0.2), fontSize: 12, fontWeight: FontWeight.w600),
-                  textAlign: TextAlign.center,
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 20, left: 24, right: 24),
+                  child: Text(
+                    "Designed & Developed by Sagar Bhowmik • Proudly Made in India 🇮🇳",
+                    style: TextStyle(
+                        color: Colors.white.withOpacity(0.2),
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
                 ),
               ],
             ),
-          )
+          ),
         ],
       ),
     );
@@ -187,43 +187,23 @@ class _AuthViewState extends State<AuthView> {
       mainAxisSize: MainAxisSize.min,
       children: [
         Container(
-          padding: const EdgeInsets.all(16), // Reduced padding
+          padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
               color: const Color(0xFF6366F1).withOpacity(0.1),
               shape: BoxShape.circle,
               border: Border.all(color: const Color(0xFF6366F1).withOpacity(0.2))
           ),
-          child: const Icon(Icons.medical_services_outlined, size: 40, color: Color(0xFF6366F1)), // Reduced Icon Size
+          child: const Icon(Icons.medical_services_outlined, size: 40, color: Color(0xFF6366F1)),
         ),
         const SizedBox(height: 24),
-
-        // --- DOCTOR INFORMATION HEADER ---
-        const Text(
-            "Dr. Shankar Deb Roy",
-            style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, letterSpacing: -0.5, color: Colors.white)
-        ),
+        const Text("Dr. Shankar Deb Roy", style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: Colors.white)),
         const SizedBox(height: 8),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-          decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.05),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.white12)
-          ),
+          decoration: BoxDecoration(color: Colors.white.withOpacity(0.05), borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.white12)),
           child: const Text("MS (Ortho) • Reg No. 1040 (TSMC)", style: TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.bold)),
         ),
-        const SizedBox(height: 8),
-        Text(
-            "Assoc. Professor, Dept. of Orthopaedics",
-            style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 12)
-        ),
-        Text(
-            "Agartala Govt. Medical College",
-            style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 12)
-        ),
-        // ---------------------------------
-
-        const SizedBox(height: 32), // Reduced spacing
+        const SizedBox(height: 32),
         _glassTextField(_emailController, "Email ID", false),
         const SizedBox(height: 12),
         _glassTextField(_passwordController, "Password", true),
@@ -231,15 +211,9 @@ class _AuthViewState extends State<AuthView> {
         SizedBox(
           width: double.infinity,
           child: ElevatedButton(
-            style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF6366F1),
-                padding: const EdgeInsets.symmetric(vertical: 18),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))
-            ),
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF6366F1), padding: const EdgeInsets.symmetric(vertical: 18), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))),
             onPressed: _isLoading ? null : _signInWithEmail,
-            child: _isLoading
-                ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                : const Text("ACCESS DASHBOARD", style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1, fontSize: 13)),
+            child: _isLoading ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Text("ACCESS DASHBOARD"),
           ),
         ),
       ],
@@ -252,66 +226,133 @@ class _AuthViewState extends State<AuthView> {
       children: [
         GestureDetector(
           onLongPress: _showAssistantLoginDialog,
-          child: Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(color: const Color(0xFF10B981).withOpacity(0.1), shape: BoxShape.circle, border: Border.all(color: const Color(0xFF10B981).withOpacity(0.2))),
-            child: const Icon(Icons.local_hospital_rounded, size: 48, color: Color(0xFF10B981)),
-          ),
-        ),
-        const SizedBox(height: 32),
-        const Text("Welcome", style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800, letterSpacing: -0.5, color: Colors.white)),
-        const SizedBox(height: 12),
-        Text(_isOtpSent ? "Enter verification code" : "Sign in to join queue", style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 14)),
-        const SizedBox(height: 48),
-        if (!_isOtpSent)
-          Container(
-            decoration: BoxDecoration(color: Colors.white.withOpacity(0.05), borderRadius: BorderRadius.circular(16)),
-            child: TextField(
-              controller: _phoneController,
-              keyboardType: TextInputType.phone,
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
-              decoration: const InputDecoration(
-                  labelText: "Mobile Number",
-                  labelStyle: TextStyle(color: Colors.white38),
-                  prefixText: "+91 ",
-                  prefixStyle: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF10B981)),
-                  border: InputBorder.none,
-                  contentPadding: EdgeInsets.symmetric(horizontal: 20, vertical: 16)
+          child: Hero(
+            tag: 'doctor_logo',
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFF10B981).withOpacity(0.1),
+                shape: BoxShape.circle,
+                border: Border.all(color: const Color(0xFF10B981).withOpacity(0.2)),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF10B981).withOpacity(0.1),
+                    blurRadius: 20,
+                    spreadRadius: 5,
+                  )
+                ],
               ),
+              child: const Icon(Icons.health_and_safety_rounded, size: 40, color: Color(0xFF10B981)),
             ),
           ),
+        ),
+        const SizedBox(height: 16),
+        const Text(
+          "Dr. Shankar Deb Roy",
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.w900,
+            color: Colors.white,
+            letterSpacing: -0.5,
+          ),
+        ),
+        const Text(
+          "MS (Ortho) • Specialist Surgeon",
+          style: TextStyle(
+            color: Color(0xFF10B981),
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 0.5,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          "Agartala Govt. Medical College",
+          style: TextStyle(
+            color: Colors.white.withOpacity(0.4),
+            fontSize: 11,
+          ),
+        ),
+
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 24),
+          child: Row(
+            children: [
+              Expanded(child: Divider(color: Colors.white.withOpacity(0.05))),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                child: Text("PATIENT PORTAL",
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.2),
+                    fontSize: 9,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 2,
+                  ),
+                ),
+              ),
+              Expanded(child: Divider(color: Colors.white.withOpacity(0.05))),
+            ],
+          ),
+        ),
+
+        const Text(
+          "Hey !",
+          style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: Colors.white),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          _isOtpSent ? "Enter verification code" : "Sign in to manage your Appointments",
+          style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 13),
+        ),
+        const SizedBox(height: 32),
+
+        if (!_isOtpSent)
+          _glassTextField(_phoneController, "Mobile Number", false, prefix: "+91 "),
+
         if (_isOtpSent)
           TextField(
             controller: _otpController,
             keyboardType: TextInputType.number,
             textAlign: TextAlign.center,
             style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold, letterSpacing: 8, color: Colors.white),
-            decoration: const InputDecoration(hintText: "••••••", hintStyle: TextStyle(letterSpacing: 8, color: Colors.white12), border: InputBorder.none),
+            decoration: const InputDecoration(
+              hintText: "••••••",
+              hintStyle: TextStyle(letterSpacing: 8, color: Colors.white12),
+              border: InputBorder.none,
+            ),
           ),
+
         const SizedBox(height: 32),
         SizedBox(
           width: double.infinity,
           child: ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF10B981), padding: const EdgeInsets.symmetric(vertical: 18), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF10B981),
+              padding: const EdgeInsets.symmetric(vertical: 18),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              elevation: 0,
+            ),
             onPressed: _isLoading ? null : (_isOtpSent ? _signInWithOTP : _verifyPhone),
             child: _isLoading
                 ? const SizedBox(height: 24, width: 24, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                : Text(_isOtpSent ? "VERIFY" : "GET OTP", style: const TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1)),
+                : Text(_isOtpSent ? "VERIFY" : "GET OTP", style: const TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1)),
           ),
         ),
       ],
     );
   }
 
-  Widget _glassTextField(TextEditingController ctrl, String label, bool obscure) {
+  Widget _glassTextField(TextEditingController ctrl, String label, bool obscure, {String? prefix}) {
     return Container(
       decoration: BoxDecoration(color: Colors.white.withOpacity(0.05), borderRadius: BorderRadius.circular(16)),
       child: TextField(
         controller: ctrl,
         obscureText: obscure,
-        style: const TextStyle(fontSize: 14, color: Colors.white), // Slightly smaller text
+        style: const TextStyle(fontSize: 14, color: Colors.white, fontWeight: FontWeight.bold),
         decoration: InputDecoration(
           labelText: label,
+          prefixText: prefix,
+          prefixStyle: const TextStyle(color: Color(0xFF10B981), fontWeight: FontWeight.bold),
           labelStyle: const TextStyle(color: Colors.white38, fontSize: 13),
           border: InputBorder.none,
           contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
@@ -329,15 +370,8 @@ class _AuthViewState extends State<AuthView> {
         filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
         child: AlertDialog(
           backgroundColor: const Color(0xFF1E293B).withOpacity(0.9),
-          title: const Text("Assistant Access", style: TextStyle(color: Colors.white)),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _glassTextField(eCtrl, "Email", false),
-              const SizedBox(height: 10),
-              _glassTextField(pCtrl, "Password", true),
-            ],
-          ),
+          title: const Text("Access", style: TextStyle(color: Colors.white)),
+          content: Column(mainAxisSize: MainAxisSize.min, children: [_glassTextField(eCtrl, "Email", false), const SizedBox(height: 10), _glassTextField(pCtrl, "Password", true)]),
           actions: [
             TextButton(onPressed: () => Navigator.pop(context), child: const Text("CANCEL", style: TextStyle(color: Colors.white54))),
             ElevatedButton(
@@ -353,7 +387,7 @@ class _AuthViewState extends State<AuthView> {
                     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
                   }
                 },
-                child: const Text("LOGIN")
+                child: const Text("GET IN")
             )
           ],
         ),
@@ -366,7 +400,6 @@ class _BlurCircle extends StatelessWidget {
   final Color color;
   final double size;
   const _BlurCircle({required this.color, required this.size});
-
   @override
   Widget build(BuildContext context) {
     return Container(

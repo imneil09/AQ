@@ -26,7 +26,7 @@ class _HistoryViewState extends State<HistoryView> {
       // Standard App Bar to match other pages
       appBar: AppBar(
         title: Text(
-          widget.isAdmin ? "Patient's Records" : "My Visits",
+          widget.isAdmin ? "Patient's Records" : "Records",
           style: const TextStyle(fontWeight: FontWeight.w900, color: Colors.white),
         ),
         backgroundColor: Colors.transparent,
