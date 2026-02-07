@@ -6,18 +6,18 @@ import '../../controllers/queueController.dart';
 import '../../models/appoinmentModel.dart';
 import '../../widgets/appointment.dart';
 import '../historyView.dart';
-import 'assistantAddView.dart'; // UPDATED: Renamed Import
+import 'assistantAddView.dart';
 import 'createClinicView.dart';
 import '../authView.dart';
 
-class AssistantHomeView extends StatefulWidget { // UPDATED: Class Name
+class AssistantHomeView extends StatefulWidget {
   const AssistantHomeView({super.key});
 
   @override
   State<AssistantHomeView> createState() => _AssistantHomeViewState();
 }
 
-class _AssistantHomeViewState extends State<AssistantHomeView> // UPDATED: State Name
+class _AssistantHomeViewState extends State<AssistantHomeView>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
 
@@ -36,10 +36,7 @@ class _AssistantHomeViewState extends State<AssistantHomeView> // UPDATED: State
       appBar: _buildAppBar(queue),
       body: Stack(
         children: [
-          // Background Base
           Container(color: const Color(0xFF0F172A)),
-
-          // Blurred Accents
           Positioned(
             top: -50,
             right: -50,
@@ -56,38 +53,14 @@ class _AssistantHomeViewState extends State<AssistantHomeView> // UPDATED: State
               size: 250,
             ),
           ),
-
           SafeArea(
             child: queue.clinics.isEmpty
                 ? _buildEmptyState()
                 : Column(
               children: [
                 _buildMetricsHeader(queue),
-
-                // Live Search Bar
-                Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.05),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: Colors.white.withOpacity(0.1)),
-                  ),
-                  child: TextField(
-                    onChanged: (val) => queue.updateLiveSearch(val),
-                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                    cursorColor: const Color(0xFF6366F1),
-                    decoration: const InputDecoration(
-                      border: InputBorder.none,
-                      hintText: "Search active queue...",
-                      hintStyle: TextStyle(color: Colors.white38, fontSize: 13, fontWeight: FontWeight.bold),
-                      icon: Icon(Icons.search_rounded, color: Colors.white38, size: 20),
-                    ),
-                  ),
-                ),
-
-                _buildCustomTabBar(),
-
+                _buildSearchBar(queue),
+                _buildCustomTabBar(queue),
                 Expanded(
                   child: TabBarView(
                     controller: _tabController,
@@ -107,14 +80,11 @@ class _AssistantHomeViewState extends State<AssistantHomeView> // UPDATED: State
           ? FloatingActionButton.extended(
         onPressed: () => Navigator.push(
           context,
-          MaterialPageRoute(builder: (_) => const AssistantAddView()), // UPDATED: Navigation
+          MaterialPageRoute(builder: (_) => const AssistantAddView()),
         ),
         label: const Text(
           "WALK-IN",
-          style: TextStyle(
-            fontWeight: FontWeight.w900,
-            letterSpacing: 1.2,
-          ),
+          style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1.2),
         ),
         icon: const Icon(Icons.add_rounded),
         backgroundColor: const Color(0xFF6366F1),
@@ -128,28 +98,45 @@ class _AssistantHomeViewState extends State<AssistantHomeView> // UPDATED: State
       backgroundColor: Colors.transparent,
       elevation: 0,
       title: queue.clinics.isEmpty
-          ? const Text(
-        "Dashboard",
-        style: TextStyle(fontWeight: FontWeight.w900),
-      )
-          : DropdownButtonHideUnderline(
-        child: DropdownButton<String>(
-          value: queue.selectedClinic?.id,
-          items: queue.clinics.map((clinic) {
-            return DropdownMenuItem<String>(
-              value: clinic.id,
-              child: Text(clinic.name),
-            );
-          }).toList(),
-          onChanged: (clinicId) {
-            if (clinicId != null) {
-              final selected = queue.clinics.firstWhere(
-                    (c) => c.id == clinicId,
-              );
-              queue.selectClinic(selected);
-            }
-          },
-        ),
+          ? const Text("Dashboard", style: TextStyle(fontWeight: FontWeight.w900))
+          : Row(
+        children: [
+          Expanded(
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<String>(
+                value: queue.selectedClinic?.id,
+                dropdownColor: const Color(0xFF1E293B),
+                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                items: queue.clinics.map((clinic) {
+                  return DropdownMenuItem<String>(
+                    value: clinic.id,
+                    child: Text(clinic.name),
+                  );
+                }).toList(),
+                onChanged: (clinicId) {
+                  if (clinicId != null) {
+                    final selected = queue.clinics.firstWhere((c) => c.id == clinicId);
+                    queue.selectClinic(selected);
+                  }
+                },
+              ),
+            ),
+          ),
+          // EDIT CLINIC BUTTON
+          IconButton(
+            icon: const Icon(Icons.edit_note_rounded, color: Colors.white70),
+            onPressed: () {
+              if (queue.selectedClinic != null) {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => CreateClinicView(clinic: queue.selectedClinic),
+                  ),
+                );
+              }
+            },
+          ),
+        ],
       ),
       actions: [
         IconButton(
@@ -160,26 +147,15 @@ class _AssistantHomeViewState extends State<AssistantHomeView> // UPDATED: State
           ),
         ),
         IconButton(
-          icon: const Icon(
-            Icons.receipt_long_rounded,
-            color: Color(0xFF6366F1),
-          ),
+          icon: const Icon(Icons.receipt_long_rounded, color: Color(0xFF6366F1)),
           onPressed: () => Navigator.push(
             context,
-            MaterialPageRoute(
-              builder: (_) => const HistoryView(isAdmin: true),
-            ),
+            MaterialPageRoute(builder: (_) => const HistoryView(isAdmin: true)),
           ),
         ),
-
-        // Emergency Close Option
         PopupMenuButton<String>(
           icon: const Icon(Icons.more_vert_rounded, color: Colors.white70),
           color: const Color(0xFF1E293B),
-          shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-              side: BorderSide(color: Colors.white.withOpacity(0.1))
-          ),
           onSelected: (value) {
             if (value == 'close') queue.emergencyClose();
             if (value == 'logout') {
@@ -194,7 +170,7 @@ class _AssistantHomeViewState extends State<AssistantHomeView> // UPDATED: State
                 children: [
                   Icon(Icons.warning_amber_rounded, color: Color(0xFFF43F5E), size: 20),
                   SizedBox(width: 12),
-                  Text("Emergency Close", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                  Text("Emergency Close", style: TextStyle(color: Colors.white)),
                 ],
               ),
             ),
@@ -204,7 +180,7 @@ class _AssistantHomeViewState extends State<AssistantHomeView> // UPDATED: State
                 children: [
                   Icon(Icons.logout_rounded, color: Colors.white54, size: 20),
                   SizedBox(width: 12),
-                  Text("Logout", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                  Text("Logout", style: TextStyle(color: Colors.white)),
                 ],
               ),
             ),
@@ -216,33 +192,33 @@ class _AssistantHomeViewState extends State<AssistantHomeView> // UPDATED: State
   }
 
   Widget _buildMetricsHeader(QueueController queue) {
+    // Calculating completed and cancelled counts from history/controller
+    final completedCount = queue.history.where((e) => e.status == AppointmentStatus.completed).length;
+    final cancelledCount = queue.history.where((e) => e.status == AppointmentStatus.cancelled).length;
+
     return Padding(
       padding: const EdgeInsets.all(20),
       child: Row(
         children: [
           _buildMetricCard(
-            "TODAY",
-            (queue.waitingList.length + queue.activeQueue.length).toString(),
-            Icons.people_outline_rounded,
+            "COMPLETED",
+            completedCount.toString(),
+            Icons.check_circle_outline_rounded,
+            accentColor: Colors.greenAccent,
           ),
           const SizedBox(width: 16),
           _buildMetricCard(
-            "WAITING",
-            queue.waitingList.length.toString(),
-            Icons.hourglass_empty_rounded,
-            isAccent: true,
+            "CANCELLED",
+            cancelledCount.toString(),
+            Icons.cancel_outlined,
+            accentColor: const Color(0xFFF43F5E),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildMetricCard(
-      String label,
-      String value,
-      IconData icon, {
-        bool isAccent = false,
-      }) {
+  Widget _buildMetricCard(String label, String value, IconData icon, {required Color accentColor}) {
     return Expanded(
       child: ClipRRect(
         borderRadius: BorderRadius.circular(24),
@@ -251,38 +227,17 @@ class _AssistantHomeViewState extends State<AssistantHomeView> // UPDATED: State
           child: Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: isAccent
-                  ? const Color(0xFF6366F1).withOpacity(0.15)
-                  : Colors.white.withOpacity(0.05),
+              color: accentColor.withOpacity(0.05),
               borderRadius: BorderRadius.circular(24),
               border: Border.all(color: Colors.white.withOpacity(0.1)),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(
-                  icon,
-                  color: isAccent ? const Color(0xFF6366F1) : Colors.white54,
-                  size: 20,
-                ),
+                Icon(icon, color: accentColor, size: 20),
                 const SizedBox(height: 12),
-                Text(
-                  value,
-                  style: const TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.w900,
-                    color: Colors.white,
-                  ),
-                ),
-                Text(
-                  label,
-                  style: const TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w900,
-                    color: Colors.white38,
-                    letterSpacing: 1.2,
-                  ),
-                ),
+                Text(value, style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: Colors.white)),
+                Text(label, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: Colors.white38, letterSpacing: 1.2)),
               ],
             ),
           ),
@@ -291,7 +246,29 @@ class _AssistantHomeViewState extends State<AssistantHomeView> // UPDATED: State
     );
   }
 
-  Widget _buildCustomTabBar() {
+  Widget _buildSearchBar(QueueController queue) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 2),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.white.withOpacity(0.1)),
+      ),
+      child: TextField(
+        onChanged: (val) => queue.updateLiveSearch(val),
+        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        decoration: const InputDecoration(
+          border: InputBorder.none,
+          hintText: "Search waiting patients...",
+          hintStyle: TextStyle(color: Colors.white38, fontSize: 13),
+          icon: Icon(Icons.search_rounded, color: Colors.white38, size: 20),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCustomTabBar(QueueController queue) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
       padding: const EdgeInsets.all(8),
@@ -305,26 +282,15 @@ class _AssistantHomeViewState extends State<AssistantHomeView> // UPDATED: State
         indicator: BoxDecoration(
           color: const Color(0xFF6366F1),
           borderRadius: BorderRadius.circular(18),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFF6366F1).withOpacity(0.3),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
         ),
         labelColor: Colors.white,
         unselectedLabelColor: Colors.white38,
-        labelStyle: const TextStyle(
-          fontWeight: FontWeight.w900,
-          fontSize: 13,
-          letterSpacing: 1,
-        ),
+        labelStyle: const TextStyle(fontWeight: FontWeight.w900, fontSize: 11),
         dividerColor: Colors.transparent,
-        tabs: const [
-          Tab(text: "WAITING"),
-          Tab(text: "ACTIVE"),
-          Tab(text: "SKIPPED"),
+        tabs: [
+          Tab(text: "WAITING (${queue.waitingList.length})"),
+          Tab(text: "ACTIVE (${queue.activeQueue.length})"),
+          Tab(text: "SKIPPED (${queue.skippedList.length})"),
         ],
       ),
     );
@@ -336,19 +302,9 @@ class _AssistantHomeViewState extends State<AssistantHomeView> // UPDATED: State
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.inbox_rounded,
-              size: 64,
-              color: Colors.white.withOpacity(0.05),
-            ),
+            Icon(Icons.inbox_rounded, size: 64, color: Colors.white.withOpacity(0.05)),
             const SizedBox(height: 16),
-            const Text(
-              "Queue is clear",
-              style: TextStyle(
-                color: Colors.white24,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
+            const Text("No patients here", style: TextStyle(color: Colors.white24, fontWeight: FontWeight.bold)),
           ],
         ),
       );
@@ -382,19 +338,9 @@ class _AssistantHomeViewState extends State<AssistantHomeView> // UPDATED: State
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            Icons.add_business_rounded,
-            size: 80,
-            color: Colors.white.withOpacity(0.05),
-          ),
+          Icon(Icons.add_business_rounded, size: 80, color: Colors.white.withOpacity(0.05)),
           const SizedBox(height: 16),
-          const Text(
-            "No clinics found. Create one to begin.",
-            style: TextStyle(
-              color: Colors.white38,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
+          const Text("No clinics found. Create one to begin.", style: TextStyle(color: Colors.white38, fontWeight: FontWeight.w600)),
         ],
       ),
     );

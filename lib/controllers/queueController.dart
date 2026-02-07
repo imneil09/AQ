@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
+import 'dart:async'; // Added for StreamSubscription
 import '../models/appoinmentModel.dart';
 import '../models/clinicModel.dart';
 
@@ -14,8 +15,12 @@ class QueueController extends ChangeNotifier {
   List<Appointment> _todayQueue = [];
   Clinic? selectedClinic;
 
+  // Stream Subscriptions for cleanup
+  StreamSubscription? _clinicSub;
+  StreamSubscription? _queueSub;
+
   // Doctor Status
-  bool _isOnBreak = false; // "Tea Break" state
+  bool _isOnBreak = false;
 
   // Search States
   String _liveSearchQuery = "";
@@ -26,9 +31,20 @@ class QueueController extends ChangeNotifier {
   String get historySearchQuery => _historySearchQuery;
   bool get isOnBreak => _isOnBreak;
 
+  // --- New Getter for Metrics ---
+  // This returns the full list of today's appointments regardless of status
+  List<Appointment> get history => _todayQueue;
+
   QueueController() {
     _fetchClinics();
     _runAutoCleanup();
+  }
+
+  @override
+  void dispose() {
+    _clinicSub?.cancel();
+    _queueSub?.cancel();
+    super.dispose();
   }
 
   // --- Doctor Actions ---
@@ -38,10 +54,7 @@ class QueueController extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// LOGOUT ACTION
   Future<void> logout() async {
-    // We sign out from Firebase.
-    // The View is responsible for navigating to AuthView immediately after awaiting this.
     await _auth.signOut();
     notifyListeners();
   }
@@ -59,7 +72,7 @@ class QueueController extends ChangeNotifier {
 
   // --- Clinic Management ---
   void _fetchClinics() {
-    _db.collection('clinics').snapshots().listen((snapshot) {
+    _clinicSub = _db.collection('clinics').snapshots().listen((snapshot) {
       clinics = snapshot.docs
           .map((doc) => Clinic.fromMap(doc.data(), doc.id))
           .toList();
@@ -83,6 +96,12 @@ class QueueController extends ChangeNotifier {
     Map<String, dynamic> data = clinic.toMap();
     if (user != null) data['doctorId'] = user.uid;
     await _db.collection('clinics').add(data);
+  }
+
+  // --- Update Clinic Logic ---
+  Future<void> updateClinic(Clinic clinic) async {
+    await _db.collection('clinics').doc(clinic.id).update(clinic.toMap());
+    notifyListeners();
   }
 
   // --- QUEUE ACTIONS ---
@@ -141,10 +160,12 @@ class QueueController extends ChangeNotifier {
   // --- Live Queue Logic ---
 
   void _listenToQueue(String clinicId) {
+    _queueSub?.cancel(); // Cancel existing sub before starting new one
+
     final now = DateTime.now();
     final todayStart = DateTime(now.year, now.month, now.day);
 
-    _db
+    _queueSub = _db
         .collection('appointments')
         .where('clinicId', isEqualTo: clinicId)
         .where('appointmentDate', isEqualTo: Timestamp.fromDate(todayStart))
@@ -177,12 +198,12 @@ class QueueController extends ChangeNotifier {
     DateTime rollingTime = DateTime(now.year, now.month, now.day, startHour, startMin);
     if (rollingTime.isBefore(now)) rollingTime = now;
 
-    // Delay estimates if on break
     if (_isOnBreak) {
       rollingTime = rollingTime.add(const Duration(minutes: 15));
     }
 
     return list.map((appt) {
+      // Use the Appointment constructor manually since copyWith isn't defined
       final newAppt = Appointment(
         id: appt.id,
         clinicId: appt.clinicId,

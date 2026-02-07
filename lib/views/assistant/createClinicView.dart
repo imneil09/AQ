@@ -5,46 +5,87 @@ import '../../controllers/queueController.dart';
 import '../../models/clinicModel.dart';
 
 class CreateClinicView extends StatefulWidget {
-  const CreateClinicView({super.key});
+  final Clinic? clinic;
+  const CreateClinicView({super.key, this.clinic});
+
   @override
   State<CreateClinicView> createState() => _CreateClinicViewState();
 }
 
 class _CreateClinicViewState extends State<CreateClinicView> {
-  final _nameCtrl = TextEditingController();
-  final _addrCtrl = TextEditingController();
+  late TextEditingController _nameCtrl;
+  late TextEditingController _addrCtrl;
+  late Map<String, ClinicSchedule> _schedule;
 
-  final Map<String, ClinicSchedule> _schedule = {
-    for (var day in ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'])
-      day: ClinicSchedule(
-        isOpen: day != 'Sunday',
-        startTime: "09:00",
-        maxAppointmentsPerDay: 20,
-        avgConsultationTimeMinutes: 10,
-      )
-  };
+  // Fixed order to ensure Sunday is always last in the UI
+  final List<String> _daysOrder = [
+    'Monday',
+    'Tuesday',
+    'Wednesday',
+    'Thursday',
+    'Friday',
+    'Saturday',
+    'Sunday'
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _nameCtrl = TextEditingController(text: widget.clinic?.name ?? "");
+    _addrCtrl = TextEditingController(text: widget.clinic?.address ?? "");
+
+    _schedule = widget.clinic?.weeklySchedule != null
+        ? Map.from(widget.clinic!.weeklySchedule)
+        : {
+      for (var day in _daysOrder)
+        day: ClinicSchedule(
+          isOpen: day != 'Sunday',
+          startTime: "09:00",
+          maxAppointmentsPerDay: 20,
+          avgConsultationTimeMinutes: 10,
+        )
+    };
+  }
+
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    _addrCtrl.dispose();
+    super.dispose();
+  }
 
   void _save() {
     if (_nameCtrl.text.isEmpty) return;
 
-    final newClinic = Clinic(
-      id: '',
-      doctorId: '', // Controller will fill this with the current user's ID
+    final clinicData = Clinic(
+      id: widget.clinic?.id ?? '',
+      doctorId: widget.clinic?.doctorId ?? '',
       name: _nameCtrl.text,
       address: _addrCtrl.text,
       weeklySchedule: _schedule,
     );
 
-    Provider.of<QueueController>(context, listen: false).addClinic(newClinic);
+    final controller = Provider.of<QueueController>(context, listen: false);
+
+    if (widget.clinic != null) {
+      controller.updateClinic(clinicData);
+    } else {
+      controller.addClinic(clinicData);
+    }
     Navigator.pop(context);
   }
 
   @override
   Widget build(BuildContext context) {
+    final bool isEditMode = widget.clinic != null;
+
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppBar(
-        title: const Text("Register Clinic", style: TextStyle(fontWeight: FontWeight.w900, color: Colors.white)),
+        title: Text(
+          isEditMode ? "Edit Clinic" : "Register Clinic",
+          style: const TextStyle(fontWeight: FontWeight.w900, color: Colors.white),
+        ),
         backgroundColor: Colors.transparent,
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.white),
@@ -52,8 +93,6 @@ class _CreateClinicViewState extends State<CreateClinicView> {
       body: Stack(
         children: [
           Container(color: const Color(0xFF0F172A)),
-
-          // Blurred Accents for Depth
           Positioned(
             top: -50,
             right: -100,
@@ -64,7 +103,6 @@ class _CreateClinicViewState extends State<CreateClinicView> {
             left: -80,
             child: _BlurCircle(color: const Color(0xFFF43F5E).withOpacity(0.15), size: 250),
           ),
-
           SafeArea(
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(24),
@@ -79,9 +117,7 @@ class _CreateClinicViewState extends State<CreateClinicView> {
                           controller: _nameCtrl,
                           style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
                           cursorColor: const Color(0xFF6366F1),
-                          decoration: const InputDecoration(
-                            hintText: "Enter clinic name",
-                          ),
+                          decoration: const InputDecoration(hintText: "Enter clinic name"),
                         ),
                         const SizedBox(height: 24),
                         _buildLabel("LOCATION"),
@@ -89,16 +125,17 @@ class _CreateClinicViewState extends State<CreateClinicView> {
                           controller: _addrCtrl,
                           style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
                           cursorColor: const Color(0xFF6366F1),
-                          decoration: const InputDecoration(
-                            hintText: "Enter clinic address",
-                          ),
+                          decoration: const InputDecoration(hintText: "Enter clinic address"),
                         ),
                       ],
                     ),
                   ),
                   const SizedBox(height: 32),
                   _buildLabel("WEEKLY SCHEDULE"),
-                  ..._schedule.keys.map((day) => _buildScheduleTile(day)),
+
+                  // UPDATED: Iterate over _daysOrder instead of _schedule.keys
+                  ..._daysOrder.map((day) => _buildScheduleTile(day)),
+
                   const SizedBox(height: 40),
                   SizedBox(
                     width: double.infinity,
@@ -110,7 +147,10 @@ class _CreateClinicViewState extends State<CreateClinicView> {
                         padding: const EdgeInsets.symmetric(vertical: 18),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                       ),
-                      child: const Text("CREATE CLINIC", style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1.2)),
+                      child: Text(
+                        isEditMode ? "UPDATE CLINIC" : "CREATE CLINIC",
+                        style: const TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1.2),
+                      ),
                     ),
                   ),
                 ],
@@ -150,56 +190,57 @@ class _CreateClinicViewState extends State<CreateClinicView> {
               isOpen: val,
               startTime: s.startTime,
               maxAppointmentsPerDay: s.maxAppointmentsPerDay,
-              avgConsultationTimeMinutes: s.avgConsultationTimeMinutes, // Preserve this
+              avgConsultationTimeMinutes: s.avgConsultationTimeMinutes,
             )),
           ),
-          if (s.isOpen) Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              children: [
-                Expanded(
-                  child: InkWell(
-                    onTap: () async {
-                      TimeOfDay? picked = await showTimePicker(
-                        context: context,
-                        initialTime: const TimeOfDay(hour: 9, minute: 0),
-                      );
-                      if (picked != null) {
-                        setState(() => _schedule[day] = ClinicSchedule(
-                          isOpen: true,
-                          startTime: "${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}",
-                          maxAppointmentsPerDay: s.maxAppointmentsPerDay,
-                          avgConsultationTimeMinutes: s.avgConsultationTimeMinutes,
-                        ));
-                      }
-                    },
-                    child: _buildTimeDisplay("START TIME", s.startTime),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: TextFormField(
-                    initialValue: s.avgConsultationTimeMinutes.toString(),
-                    keyboardType: TextInputType.number,
-                    style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
-                    decoration: const InputDecoration(
-                      labelText: "AVG TIME (MIN)",
-                      labelStyle: TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
-                      contentPadding: EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                      enabledBorder: OutlineInputBorder(borderSide: BorderSide.none),
-                      focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: Color(0xFF6366F1))),
-                    ),
-                    onChanged: (val) => _schedule[day] = ClinicSchedule(
-                      isOpen: true,
-                      startTime: s.startTime,
-                      maxAppointmentsPerDay: s.maxAppointmentsPerDay,
-                      avgConsultationTimeMinutes: int.tryParse(val) ?? 10,
+          if (s.isOpen)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: InkWell(
+                      onTap: () async {
+                        TimeOfDay? picked = await showTimePicker(
+                          context: context,
+                          initialTime: const TimeOfDay(hour: 9, minute: 0),
+                        );
+                        if (picked != null) {
+                          setState(() => _schedule[day] = ClinicSchedule(
+                            isOpen: true,
+                            startTime: "${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}",
+                            maxAppointmentsPerDay: s.maxAppointmentsPerDay,
+                            avgConsultationTimeMinutes: s.avgConsultationTimeMinutes,
+                          ));
+                        }
+                      },
+                      child: _buildTimeDisplay("START TIME", s.startTime),
                     ),
                   ),
-                ),
-              ],
-            ),
-          )
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: TextFormField(
+                      initialValue: s.maxAppointmentsPerDay.toString(),
+                      keyboardType: TextInputType.number,
+                      style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+                      decoration: const InputDecoration(
+                        labelText: "MAX PATIENTS",
+                        labelStyle: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white38),
+                        contentPadding: EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                        enabledBorder: OutlineInputBorder(borderSide: BorderSide.none),
+                        focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: Color(0xFF6366F1))),
+                      ),
+                      onChanged: (val) => _schedule[day] = ClinicSchedule(
+                        isOpen: true,
+                        startTime: s.startTime,
+                        maxAppointmentsPerDay: int.tryParse(val) ?? 20,
+                        avgConsultationTimeMinutes: s.avgConsultationTimeMinutes,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            )
         ],
       ),
     );
