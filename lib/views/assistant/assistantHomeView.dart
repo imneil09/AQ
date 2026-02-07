@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../controllers/queueController.dart';
 import '../../models/appoinmentModel.dart';
-import '../../models/clinicModel.dart';
 import '../../widgets/appointment.dart';
 import '../historyView.dart';
 import 'assistantAddView.dart'; // UPDATED: Renamed Import

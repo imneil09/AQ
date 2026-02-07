@@ -20,7 +20,7 @@ class _DoctorDesktopViewState extends State<DoctorDesktopView> {
   final _investigationCtrl = TextEditingController();
 
   // Medicine List State
-  List<Map<String, String>> _medicines = [];
+  final List<Map<String, String>> _medicines = [];
 
   // Temporary Medicine Input
   final _medNameCtrl = TextEditingController();
@@ -288,7 +288,7 @@ class _DoctorDesktopViewState extends State<DoctorDesktopView> {
       width: double.infinity,
       decoration: BoxDecoration(border: Border.all(color: Colors.white12), borderRadius: BorderRadius.circular(16)),
       child: DataTable(
-        headingRowColor: MaterialStateProperty.all(Colors.white.withOpacity(0.05)),
+        headingRowColor: WidgetStateProperty.all(Colors.white.withOpacity(0.05)),
         columns: const [
           DataColumn(label: Text("Medicine", style: TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.bold))),
           DataColumn(label: Text("Instruction", style: TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.bold))),
