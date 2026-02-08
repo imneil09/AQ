@@ -6,8 +6,8 @@ import 'package:intl/intl.dart';
 import '../../controllers/queueController.dart';
 import '../../models/appoinmentModel.dart';
 import '../historyView.dart';
-import 'patientJoinView.dart';
 import '../authView.dart';
+import '../unifiedBookingView.dart';
 
 class PatientHomeView extends StatefulWidget {
   const PatientHomeView({super.key});
@@ -97,7 +97,7 @@ class _PatientHomeViewState extends State<PatientHomeView> with SingleTickerProv
             ),
             floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
             floatingActionButton: FloatingActionButton.extended(
-              onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PatientJoinView(isBooking: true))),
+              onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const UnifiedBookingView(isAssistant: false))),
               backgroundColor: const Color(0xFF6366F1),
               icon: const Icon(Icons.add_rounded, color: Colors.white),
               label: const Text("NEW", style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1)),

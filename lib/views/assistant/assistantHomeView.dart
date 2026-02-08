@@ -6,7 +6,7 @@ import '../../controllers/queueController.dart';
 import '../../models/appoinmentModel.dart';
 import '../../widgets/appointment.dart';
 import '../historyView.dart';
-import 'assistantAddView.dart';
+import '../unifiedBookingView.dart';
 import 'createClinicView.dart';
 import '../authView.dart';
 
@@ -80,7 +80,7 @@ class _AssistantHomeViewState extends State<AssistantHomeView>
           ? FloatingActionButton.extended(
         onPressed: () => Navigator.push(
           context,
-          MaterialPageRoute(builder: (_) => const AssistantAddView()),
+          MaterialPageRoute(builder: (_) => const UnifiedBookingView(isAssistant: true)),
         ),
         label: const Text(
           "WALK-IN",
