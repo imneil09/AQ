@@ -94,7 +94,7 @@ class _UnifiedBookingViewState extends State<UnifiedBookingView> {
       extendBodyBehindAppBar: true,
       appBar: AppBar(
         title: Text(
-            widget.isAssistant ? "WALK-IN REGISTRATION" : "BOOK APPOINTMENT",
+            widget.isAssistant ? "WALK-IN APPOINTMENT" : "NEW APPOINTMENT",
             style: const TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1.5, fontSize: 13)
         ),
         centerTitle: true,
