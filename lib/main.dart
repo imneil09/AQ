@@ -1,16 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:flutter/foundation.dart'; // Import for kIsWeb
+import 'package:flutter/foundation.dart';
 import 'controllers/queueController.dart';
 import 'views/authView.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
-  // FIX: Handle "Duplicate App" error by separating logic for Web and Native (Android/iOS)
   if (kIsWeb) {
-    // Web requires manual options or a script in index.html
     await Firebase.initializeApp(
       options: const FirebaseOptions(
         apiKey: "AIzaSyAiNAGIFURSkqbSj8-K4AW9yT3PM2pwuCk",
@@ -22,8 +19,6 @@ void main() async {
       ),
     );
   } else {
-    // Android and iOS automatically initialize using google-services.json / GoogleService-Info.plist
-    // Calling this without options connects to the already initialized native instance.
     await Firebase.initializeApp();
   }
 
@@ -35,16 +30,20 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MultiProvider(
-      providers: [ChangeNotifierProvider(create: (_) => QueueController())],
+    // 1. REFACTOR: Removed unnecessary MultiProvider nesting
+    return ChangeNotifierProvider(
+      create: (_) => QueueController(),
       child: MaterialApp(
         title: 'Dr. Roy',
         debugShowCheckedModeBanner: false,
         theme: ThemeData(
           useMaterial3: true,
-          brightness: Brightness.dark,
+          // 2. REFACTOR: Removed redundant 'brightness: Brightness.dark' line
+          // The colorScheme handles the brightness setting efficiently.
           colorScheme: ColorScheme.fromSeed(
-            seedColor: const Color(0xFF6366F1),
+            seedColor: const Color(
+              0xFF6366F1,
+            ), // Hint: Use AppColors.primary if you added the file I suggested!
             brightness: Brightness.dark,
           ),
         ),

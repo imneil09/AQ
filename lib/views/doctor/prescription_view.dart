@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../models/appoinmentModel.dart';
-import 'prescription_pdf.dart'; // The separated PDF logic
+import '../../widgets/app_colors.dart'; // DRY: Import centralized colors
+import 'prescription_pdf.dart';
 
 class PrescriptionView extends StatefulWidget {
   final Appointment patient;
@@ -45,15 +46,16 @@ class _PrescriptionViewState extends State<PrescriptionView> with SingleTickerPr
 
         // --- 2. Tabs ---
         Container(
-          color: const Color(0xFF1E293B),
+          color: AppColors.surface, // DRY: Use AppColors.surface
           child: TabBar(
             controller: _tabController,
-            indicatorColor: const Color(0xFF6366F1),
+            indicatorColor: AppColors.primary, // DRY: Use AppColors.primary
             labelColor: Colors.white,
             unselectedLabelColor: Colors.white54,
+            dividerColor: AppColors.glassBorder,
             tabs: const [
-              Tab(text: "CURRENT CONSULTATION", icon: Icon(Icons.edit_note)),
-              Tab(text: "PATIENT HISTORY", icon: Icon(Icons.history)),
+              Tab(text: "CURRENT CONSULTATION", icon: Icon(Icons.edit_note_rounded)),
+              Tab(text: "PATIENT HISTORY", icon: Icon(Icons.history_rounded)),
             ],
           ),
         ),
@@ -76,13 +78,13 @@ class _PrescriptionViewState extends State<PrescriptionView> with SingleTickerPr
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E293B),
-        border: Border(bottom: BorderSide(color: Colors.white.withOpacity(0.1))),
+        color: AppColors.surface,
+        border: Border(bottom: BorderSide(color: AppColors.glassBorder)),
       ),
       child: Row(
         children: [
           CircleAvatar(
-            backgroundColor: const Color(0xFF6366F1),
+            backgroundColor: AppColors.primary,
             radius: 24,
             child: Text(widget.patient.customerName[0], style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
           ),
@@ -96,7 +98,7 @@ class _PrescriptionViewState extends State<PrescriptionView> with SingleTickerPr
                 children: [
                   _tag(widget.patient.serviceType, Colors.orange),
                   const SizedBox(width: 8),
-                  _tag("Token #${widget.patient.tokenNumber}", Colors.green),
+                  _tag("Token #${widget.patient.tokenNumber}", AppColors.success),
                   const SizedBox(width: 8),
                   Text(widget.patient.phoneNumber, style: const TextStyle(color: Colors.white54)),
                 ],
@@ -104,7 +106,11 @@ class _PrescriptionViewState extends State<PrescriptionView> with SingleTickerPr
             ],
           ),
           const Spacer(),
-          Text(DateFormat('dd MMM yyyy').format(DateTime.now()), style: const TextStyle(color: Colors.white38)),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(color: AppColors.glassWhite, borderRadius: BorderRadius.circular(8)),
+            child: Text(DateFormat('dd MMM yyyy').format(DateTime.now()), style: const TextStyle(color: Colors.white70, fontWeight: FontWeight.bold, fontSize: 12)),
+          ),
         ],
       ),
     );
@@ -127,7 +133,12 @@ class _PrescriptionViewState extends State<PrescriptionView> with SingleTickerPr
         children: [
           // Row 1: Previous Reports
           _buildSectionLabel("PREVIOUS INVESTIGATION REPORT SUMMARY"),
-          _buildTextArea(_prevReportCtrl, "Enter summary of previous reports if any..."),
+          TextField(
+            controller: _prevReportCtrl,
+            maxLines: 3,
+            style: const TextStyle(color: Colors.white),
+            decoration: _inputDeco("Enter summary of previous reports if any..."),
+          ),
           const SizedBox(height: 32),
 
           // Row 2: Medicines
@@ -148,7 +159,12 @@ class _PrescriptionViewState extends State<PrescriptionView> with SingleTickerPr
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _buildSectionLabel("ADVICE / NEW INVESTIGATIONS"),
-                    _buildTextArea(_newInvestCtrl, "List tests or advice..."),
+                    TextField(
+                      controller: _newInvestCtrl,
+                      maxLines: 4,
+                      style: const TextStyle(color: Colors.white),
+                      decoration: _inputDeco("List tests or advice..."),
+                    ),
                   ],
                 ),
               ),
@@ -158,7 +174,12 @@ class _PrescriptionViewState extends State<PrescriptionView> with SingleTickerPr
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _buildSectionLabel("DIET & SPECIAL INSTRUCTIONS"),
-                    _buildTextArea(_dietCtrl, "Diet plan, precautions..."),
+                    TextField(
+                      controller: _dietCtrl,
+                      maxLines: 4,
+                      style: const TextStyle(color: Colors.white),
+                      decoration: _inputDeco("Diet plan, precautions..."),
+                    ),
                   ],
                 ),
               ),
@@ -167,138 +188,165 @@ class _PrescriptionViewState extends State<PrescriptionView> with SingleTickerPr
           const SizedBox(height: 32),
 
           // Row 4: Next Visit & Actions
-          Row(
-            children: [
-              // Next Visit Picker
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildSectionLabel("NEXT VISIT DATE"),
-                  InkWell(
-                    onTap: () async {
-                      final d = await showDatePicker(
-                          context: context,
-                          initialDate: DateTime.now().add(const Duration(days: 7)),
-                          firstDate: DateTime.now(),
-                          lastDate: DateTime.now().add(const Duration(days: 365))
-                      );
-                      if(d != null) setState(() => _nextVisitDate = d);
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.05),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.white12),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.calendar_today, color: Colors.white54, size: 16),
-                          const SizedBox(width: 10),
-                          Text(
-                            _nextVisitDate == null ? "Select Date" : DateFormat('dd MMM yyyy').format(_nextVisitDate!),
-                            style: const TextStyle(color: Colors.white),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const Spacer(),
-
-              // Action Buttons
-              OutlinedButton.icon(
-                icon: const Icon(Icons.print),
-                label: const Text("PRINT PRESCRIPTION"),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 18),
-                ),
-                onPressed: () {
-                  PrescriptionPDF.generateAndPrint(
-                      patientName: widget.patient.customerName,
-                      prevReports: _prevReportCtrl.text,
-                      medicines: _medicines,
-                      newInvestigations: _newInvestCtrl.text,
-                      dietInstructions: _dietCtrl.text,
-                      nextVisit: _nextVisitDate
-                  );
-                },
-              ),
-              const SizedBox(width: 16),
-              ElevatedButton.icon(
-                icon: const Icon(Icons.check_circle),
-                label: const Text("FINISH CONSULTATION"),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF10B981),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 18),
-                ),
-                onPressed: widget.onFinish,
-              ),
-            ],
-          )
+          _buildActionFooter(),
         ],
       ),
     );
   }
 
+  Widget _buildActionFooter() {
+    return Row(
+      children: [
+        // Next Visit Picker
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildSectionLabel("NEXT VISIT DATE"),
+            InkWell(
+              onTap: () async {
+                final d = await showDatePicker(
+                    context: context,
+                    initialDate: DateTime.now().add(const Duration(days: 7)),
+                    firstDate: DateTime.now(),
+                    lastDate: DateTime.now().add(const Duration(days: 365)),
+                    builder: (context, child) {
+                      return Theme(
+                        data: ThemeData.dark().copyWith(
+                          colorScheme: const ColorScheme.dark(primary: AppColors.primary, surface: AppColors.surface),
+                        ),
+                        child: child!,
+                      );
+                    }
+                );
+                if (d != null) setState(() => _nextVisitDate = d);
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                decoration: BoxDecoration(
+                  color: AppColors.glassWhite,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.glassBorder),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.calendar_today_rounded, color: Colors.white54, size: 18),
+                    const SizedBox(width: 12),
+                    Text(
+                      _nextVisitDate == null ? "Select Date" : DateFormat('dd MMM yyyy').format(_nextVisitDate!),
+                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+        const Spacer(),
+
+        // Action Buttons
+        OutlinedButton.icon(
+          icon: const Icon(Icons.print_rounded),
+          label: const Text("PRINT PRESCRIPTION"),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: Colors.white,
+            side: BorderSide(color: Colors.white.withOpacity(0.2)),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+          onPressed: () {
+            PrescriptionPDF.generateAndPrint(
+                patientName: widget.patient.customerName,
+                prevReports: _prevReportCtrl.text,
+                medicines: _medicines,
+                newInvestigations: _newInvestCtrl.text,
+                dietInstructions: _dietCtrl.text,
+                nextVisit: _nextVisitDate
+            );
+          },
+        ),
+        const SizedBox(width: 16),
+        ElevatedButton.icon(
+          icon: const Icon(Icons.check_circle_rounded),
+          label: const Text("FINISH CONSULTATION"),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppColors.success,
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 20),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            elevation: 0,
+          ),
+          onPressed: widget.onFinish,
+        ),
+      ],
+    );
+  }
+
   // --- TAB 2: HISTORY VIEW ---
   Widget _buildHistoryView() {
-    // This is a placeholder for the actual history list.
-    // In a real app, you would fetch `queue.patientHistory` for this specific phone number.
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.history_edu, size: 64, color: Colors.white.withOpacity(0.1)),
+          Icon(Icons.history_edu_rounded, size: 64, color: Colors.white.withOpacity(0.05)),
           const SizedBox(height: 16),
-          const Text("No previous records found for this patient.", style: TextStyle(color: Colors.white24)),
+          const Text("No previous records found for this patient.", style: TextStyle(color: Colors.white24, fontWeight: FontWeight.bold)),
         ],
       ),
     );
   }
 
   // --- UI Helpers ---
-  Widget _buildSectionLabel(String text) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8.0),
-      child: Text(text, style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
+
+  // DRY: Reusable Input Decoration for consistency across the form
+  InputDecoration _inputDeco(String hint) {
+    return InputDecoration(
+      filled: true,
+      fillColor: AppColors.glassWhite,
+      hintText: hint,
+      hintStyle: TextStyle(color: Colors.white.withOpacity(0.3), fontSize: 13),
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+      contentPadding: const EdgeInsets.all(16),
     );
   }
 
-  Widget _buildTextArea(TextEditingController ctrl, String hint) {
-    return Container(
-      height: 100,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(color: Colors.white.withOpacity(0.03), borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.white10)),
-      child: TextField(
-        controller: ctrl,
-        maxLines: null,
-        style: const TextStyle(color: Colors.white),
-        decoration: InputDecoration.collapsed(hintText: hint, hintStyle: TextStyle(color: Colors.white.withOpacity(0.2))),
-      ),
+  Widget _buildSectionLabel(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8.0, left: 4),
+      child: Text(text, style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 1.5)),
     );
   }
 
   Widget _buildMedicineAdder() {
     return Container(
       padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(color: Colors.white.withOpacity(0.03), borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.white10)),
+      decoration: BoxDecoration(color: AppColors.glassWhite, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.glassBorder)),
       child: Row(
         children: [
-          Expanded(flex: 3, child: _glassField(_medNameCtrl, "Medicine Name")),
-          const SizedBox(width: 8),
-          Expanded(flex: 1, child: _glassField(_medQtyCtrl, "Qty")),
+          Expanded(
+            flex: 3,
+            child: TextField(
+              controller: _medNameCtrl,
+              style: const TextStyle(color: Colors.white),
+              decoration: const InputDecoration(border: InputBorder.none, hintText: "  Medicine Name", hintStyle: TextStyle(color: Colors.white38, fontSize: 13)),
+            ),
+          ),
+          Container(width: 1, height: 24, color: Colors.white12),
+          Expanded(
+            flex: 1,
+            child: TextField(
+              controller: _medQtyCtrl,
+              style: const TextStyle(color: Colors.white),
+              decoration: const InputDecoration(border: InputBorder.none, hintText: "  Qty", hintStyle: TextStyle(color: Colors.white38, fontSize: 13)),
+            ),
+          ),
           const SizedBox(width: 8),
           _buildDropdown(),
           const SizedBox(width: 8),
           _buildChip(),
           const SizedBox(width: 8),
           IconButton(
-            style: IconButton.styleFrom(backgroundColor: const Color(0xFF6366F1)),
-            icon: const Icon(Icons.add, color: Colors.white),
+            style: IconButton.styleFrom(backgroundColor: AppColors.primary, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
+            icon: const Icon(Icons.add_rounded, color: Colors.white),
             onPressed: _addMedicine,
           )
         ],
@@ -322,26 +370,26 @@ class _PrescriptionViewState extends State<PrescriptionView> with SingleTickerPr
 
   Widget _buildMedicineTable() {
     return Container(
-      decoration: BoxDecoration(border: Border.all(color: Colors.white12), borderRadius: BorderRadius.circular(8)),
+      decoration: BoxDecoration(border: Border.all(color: AppColors.glassBorder), borderRadius: BorderRadius.circular(12)),
       width: double.infinity,
       child: DataTable(
         headingRowHeight: 40,
-        headingRowColor: WidgetStateProperty.all(Colors.white.withOpacity(0.05)),
+        headingRowColor: WidgetStateProperty.all(AppColors.glassWhite),
         columns: const [
-          DataColumn(label: Text("Name", style: TextStyle(color: Colors.white54, fontSize: 12))),
-          DataColumn(label: Text("Dosage", style: TextStyle(color: Colors.white54, fontSize: 12))),
-          DataColumn(label: Text("Instruction", style: TextStyle(color: Colors.white54, fontSize: 12))),
-          DataColumn(label: Text("Qty", style: TextStyle(color: Colors.white54, fontSize: 12))),
-          DataColumn(label: Text("", style: TextStyle(color: Colors.white54, fontSize: 12))),
+          DataColumn(label: Text("Name", style: TextStyle(color: Colors.white54, fontSize: 11, fontWeight: FontWeight.bold))),
+          DataColumn(label: Text("Dosage", style: TextStyle(color: Colors.white54, fontSize: 11, fontWeight: FontWeight.bold))),
+          DataColumn(label: Text("Instruction", style: TextStyle(color: Colors.white54, fontSize: 11, fontWeight: FontWeight.bold))),
+          DataColumn(label: Text("Qty", style: TextStyle(color: Colors.white54, fontSize: 11, fontWeight: FontWeight.bold))),
+          DataColumn(label: Text("", style: TextStyle(color: Colors.white54, fontSize: 11, fontWeight: FontWeight.bold))),
         ],
         rows: _medicines.map((m) {
           return DataRow(cells: [
-            DataCell(Text(m['name']!, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
-            DataCell(Text(m['timing']!, style: const TextStyle(color: Color(0xFF6366F1)))),
+            DataCell(Text(m['name']!, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600))),
+            DataCell(Text(m['timing']!, style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold))),
             DataCell(Text(m['instruction']!, style: const TextStyle(color: Colors.white70))),
             DataCell(Text(m['qty']!, style: const TextStyle(color: Colors.white))),
             DataCell(IconButton(
-              icon: const Icon(Icons.remove_circle, color: Colors.redAccent, size: 16),
+              icon: Icon(Icons.remove_circle_outline_rounded, color: AppColors.error.withOpacity(0.8), size: 18),
               onPressed: () => setState(() => _medicines.remove(m)),
             ))
           ]);
@@ -350,28 +398,16 @@ class _PrescriptionViewState extends State<PrescriptionView> with SingleTickerPr
     );
   }
 
-  Widget _glassField(TextEditingController ctrl, String hint) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      decoration: BoxDecoration(color: Colors.white.withOpacity(0.05), borderRadius: BorderRadius.circular(4)),
-      child: TextField(
-        controller: ctrl,
-        style: const TextStyle(color: Colors.white),
-        decoration: InputDecoration(border: InputBorder.none, hintText: hint, hintStyle: TextStyle(color: Colors.white38, fontSize: 13)),
-      ),
-    );
-  }
-
   Widget _buildDropdown() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12),
-      decoration: BoxDecoration(color: Colors.white.withOpacity(0.05), borderRadius: BorderRadius.circular(4)),
+      decoration: BoxDecoration(color: Colors.white.withOpacity(0.05), borderRadius: BorderRadius.circular(8)),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String>(
           value: _timing,
-          dropdownColor: const Color(0xFF1E293B),
-          icon: const Icon(Icons.arrow_drop_down, color: Colors.white38),
-          items: ["1-0-1", "1-1-1", "1-0-0", "0-0-1", "S-O-S"].map((e) => DropdownMenuItem(value: e, child: Text(e, style: const TextStyle(color: Colors.white)))).toList(),
+          dropdownColor: AppColors.surface,
+          icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Colors.white38),
+          items: ["1-0-1", "1-1-1", "1-0-0", "0-0-1", "S-O-S"].map((e) => DropdownMenuItem(value: e, child: Text(e, style: const TextStyle(color: Colors.white, fontSize: 13)))).toList(),
           onChanged: (v) => setState(() => _timing = v!),
         ),
       ),
@@ -384,9 +420,10 @@ class _PrescriptionViewState extends State<PrescriptionView> with SingleTickerPr
       selected: _afterFood,
       onSelected: (v) => setState(() => _afterFood = v),
       backgroundColor: Colors.white.withOpacity(0.05),
-      selectedColor: const Color(0xFF6366F1).withOpacity(0.2),
-      checkmarkColor: const Color(0xFF6366F1),
-      labelStyle: TextStyle(color: _afterFood ? Colors.white : Colors.white54, fontSize: 12),
+      selectedColor: AppColors.primary.withOpacity(0.2),
+      checkmarkColor: AppColors.primary,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8), side: BorderSide.none),
+      labelStyle: TextStyle(color: _afterFood ? Colors.white : Colors.white54, fontSize: 12, fontWeight: FontWeight.bold),
     );
   }
 }

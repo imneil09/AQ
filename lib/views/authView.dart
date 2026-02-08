@@ -3,6 +3,12 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+
+// Imports for your new DRY widgets
+import '../widgets/app_colors.dart';
+import '../widgets/background_blur.dart';
+import '../widgets/glass_card.dart';
+
 import 'patient/patientHomeView.dart';
 import 'assistant/assistantHomeView.dart';
 import 'doctor/doctor_dashboard.dart';
@@ -132,9 +138,22 @@ class _AuthViewState extends State<AuthView> {
     return Scaffold(
       body: Stack(
         children: [
-          Container(color: const Color(0xFF0F172A)),
-          Positioned(top: -100, right: -50, child: _BlurCircle(color: const Color(0xFF6366F1).withOpacity(0.15), size: 400)),
-          Positioned(bottom: -50, left: -50, child: _BlurCircle(color: const Color(0xFFF43F5E).withOpacity(0.1), size: 300)),
+          // 1. REFACTOR: Use AppColors
+          Container(color: AppColors.background),
+
+          // 2. REFACTOR: Use BackgroundBlur widget
+          BackgroundBlur(
+            color: AppColors.primary.withOpacity(0.15),
+            size: 400,
+            top: -100,
+            right: -50,
+          ),
+          BackgroundBlur(
+            color: AppColors.error.withOpacity(0.1),
+            size: 300,
+            bottom: -50,
+            left: -50,
+          ),
 
           SafeArea(
             child: Column(
@@ -143,20 +162,13 @@ class _AuthViewState extends State<AuthView> {
                   child: Center(
                     child: SingleChildScrollView(
                       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(32),
-                        child: BackdropFilter(
-                          filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-                          child: Container(
-                            width: showDoctorUI ? 380 : double.infinity,
-                            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 40),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.05),
-                              borderRadius: BorderRadius.circular(32),
-                              border: Border.all(color: Colors.white.withOpacity(0.08)),
-                            ),
-                            child: showDoctorUI ? _buildDesktopContent() : _buildMobileContent(),
-                          ),
+                      // 3. REFACTOR: Use GlassCard widget
+                      child: SizedBox(
+                        // Constrain width for desktop/doctor view
+                        width: showDoctorUI ? 380 : double.infinity,
+                        child: GlassCard(
+                          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 40),
+                          child: showDoctorUI ? _buildDesktopContent() : _buildMobileContent(),
                         ),
                       ),
                     ),
@@ -189,18 +201,18 @@ class _AuthViewState extends State<AuthView> {
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-              color: const Color(0xFF6366F1).withOpacity(0.1),
+              color: AppColors.primary.withOpacity(0.1),
               shape: BoxShape.circle,
-              border: Border.all(color: const Color(0xFF6366F1).withOpacity(0.2))
+              border: Border.all(color: AppColors.primary.withOpacity(0.2))
           ),
-          child: const Icon(Icons.medical_services_outlined, size: 40, color: Color(0xFF6366F1)),
+          child: const Icon(Icons.medical_services_outlined, size: 40, color: AppColors.primary),
         ),
         const SizedBox(height: 24),
         const Text("Dr. Shankar Deb Roy", style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: Colors.white)),
         const SizedBox(height: 8),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-          decoration: BoxDecoration(color: Colors.white.withOpacity(0.05), borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.white12)),
+          decoration: BoxDecoration(color: AppColors.glassWhite, borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.white12)),
           child: const Text("MS (Ortho) • Reg No. 1040 (TSMC)", style: TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.bold)),
         ),
         const SizedBox(height: 32),
@@ -211,7 +223,7 @@ class _AuthViewState extends State<AuthView> {
         SizedBox(
           width: double.infinity,
           child: ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF6366F1), padding: const EdgeInsets.symmetric(vertical: 18), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))),
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, padding: const EdgeInsets.symmetric(vertical: 18), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))),
             onPressed: _isLoading ? null : _signInWithEmail,
             child: _isLoading ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Text("ACCESS DASHBOARD"),
           ),
@@ -231,18 +243,18 @@ class _AuthViewState extends State<AuthView> {
             child: Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: const Color(0xFF10B981).withOpacity(0.1),
+                color: AppColors.success.withOpacity(0.1),
                 shape: BoxShape.circle,
-                border: Border.all(color: const Color(0xFF10B981).withOpacity(0.2)),
+                border: Border.all(color: AppColors.success.withOpacity(0.2)),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFF10B981).withOpacity(0.1),
+                    color: AppColors.success.withOpacity(0.1),
                     blurRadius: 20,
                     spreadRadius: 5,
                   )
                 ],
               ),
-              child: const Icon(Icons.health_and_safety_rounded, size: 40, color: Color(0xFF10B981)),
+              child: const Icon(Icons.health_and_safety_rounded, size: 40, color: AppColors.success),
             ),
           ),
         ),
@@ -259,7 +271,7 @@ class _AuthViewState extends State<AuthView> {
         const Text(
           "MS (Ortho) • Specialist Surgeon",
           style: TextStyle(
-            color: Color(0xFF10B981),
+            color: AppColors.success,
             fontSize: 12,
             fontWeight: FontWeight.bold,
             letterSpacing: 0.5,
@@ -278,7 +290,7 @@ class _AuthViewState extends State<AuthView> {
           padding: const EdgeInsets.symmetric(vertical: 24),
           child: Row(
             children: [
-              Expanded(child: Divider(color: Colors.white.withOpacity(0.05))),
+              Expanded(child: Divider(color: AppColors.glassWhite)),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 10),
                 child: Text("PATIENT PORTAL",
@@ -290,7 +302,7 @@ class _AuthViewState extends State<AuthView> {
                   ),
                 ),
               ),
-              Expanded(child: Divider(color: Colors.white.withOpacity(0.05))),
+              Expanded(child: Divider(color: AppColors.glassWhite)),
             ],
           ),
         ),
@@ -327,7 +339,7 @@ class _AuthViewState extends State<AuthView> {
           width: double.infinity,
           child: ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF10B981),
+              backgroundColor: AppColors.success,
               padding: const EdgeInsets.symmetric(vertical: 18),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
               elevation: 0,
@@ -343,8 +355,9 @@ class _AuthViewState extends State<AuthView> {
   }
 
   Widget _glassTextField(TextEditingController ctrl, String label, bool obscure, {String? prefix}) {
+    // 4. REFACTOR: Updated standard text field to use AppColors
     return Container(
-      decoration: BoxDecoration(color: Colors.white.withOpacity(0.05), borderRadius: BorderRadius.circular(16)),
+      decoration: BoxDecoration(color: AppColors.glassWhite, borderRadius: BorderRadius.circular(16)),
       child: TextField(
         controller: ctrl,
         obscureText: obscure,
@@ -352,7 +365,7 @@ class _AuthViewState extends State<AuthView> {
         decoration: InputDecoration(
           labelText: label,
           prefixText: prefix,
-          prefixStyle: const TextStyle(color: Color(0xFF10B981), fontWeight: FontWeight.bold),
+          prefixStyle: const TextStyle(color: AppColors.success, fontWeight: FontWeight.bold),
           labelStyle: const TextStyle(color: Colors.white38, fontSize: 13),
           border: InputBorder.none,
           contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
@@ -369,13 +382,13 @@ class _AuthViewState extends State<AuthView> {
       builder: (_) => BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
         child: AlertDialog(
-          backgroundColor: const Color(0xFF1E293B).withOpacity(0.9),
+          backgroundColor: AppColors.surface.withOpacity(0.9),
           title: const Text("Access", style: TextStyle(color: Colors.white)),
           content: Column(mainAxisSize: MainAxisSize.min, children: [_glassTextField(eCtrl, "Email", false), const SizedBox(height: 10), _glassTextField(pCtrl, "Password", true)]),
           actions: [
             TextButton(onPressed: () => Navigator.pop(context), child: const Text("CANCEL", style: TextStyle(color: Colors.white54))),
             ElevatedButton(
-                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF6366F1)),
+                style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
                 onPressed: () async {
                   try {
                     final cred = await _auth.signInWithEmailAndPassword(email: eCtrl.text.trim(), password: pCtrl.text.trim());
@@ -392,21 +405,6 @@ class _AuthViewState extends State<AuthView> {
           ],
         ),
       ),
-    );
-  }
-}
-
-class _BlurCircle extends StatelessWidget {
-  final Color color;
-  final double size;
-  const _BlurCircle({required this.color, required this.size});
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-      child: BackdropFilter(filter: ImageFilter.blur(sigmaX: 80, sigmaY: 80), child: Container(color: Colors.transparent)),
     );
   }
 }

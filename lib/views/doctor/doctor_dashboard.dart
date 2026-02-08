@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../../controllers/queueController.dart';
 import '../../models/appoinmentModel.dart';
+import '../../widgets/app_colors.dart'; // Import DRY Colors
 import '../authView.dart';
 import 'prescription_view.dart';
 
@@ -29,7 +30,7 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
     final activePatient = queue.activeQueue.isNotEmpty ? queue.activeQueue.first : null;
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0F172A), // Deep Slate
+      backgroundColor: AppColors.background, // DRY: Standard Background
       appBar: _buildModernAppBar(context, queue),
       body: Row(
         children: [
@@ -50,9 +51,9 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
               child: Container(
                 margin: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF1E293B),
+                  color: AppColors.surface, // DRY: Standard Surface
                   borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: Colors.white.withOpacity(0.05)),
+                  border: Border.all(color: AppColors.glassWhite),
                 ),
                 child: queue.isOnBreak
                     ? _buildBreakScreen(queue)
@@ -67,7 +68,7 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
 
   PreferredSizeWidget _buildModernAppBar(BuildContext context, QueueController queue) {
     return AppBar(
-      backgroundColor: const Color(0xFF0F172A),
+      backgroundColor: AppColors.background,
       elevation: 0,
       toolbarHeight: 80,
       title: Row(
@@ -75,10 +76,10 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: const Color(0xFF6366F1).withOpacity(0.1),
+              color: AppColors.primary.withOpacity(0.1),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: const Icon(Icons.monitor_heart, color: Color(0xFF6366F1)),
+            child: const Icon(Icons.monitor_heart, color: AppColors.primary),
           ),
           const SizedBox(width: 16),
           Column(
@@ -99,7 +100,7 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
         const SizedBox(width: 20),
         IconButton(
           onPressed: () => _handleLogout(context, queue),
-          icon: const Icon(Icons.power_settings_new_rounded, color: Colors.redAccent),
+          icon: const Icon(Icons.power_settings_new_rounded, color: AppColors.error),
           tooltip: "Logout",
         ),
         const SizedBox(width: 24),
@@ -113,9 +114,9 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
       width: _isSearching ? 300 : 45,
       height: 45,
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
+        color: AppColors.glassWhite,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: _isSearching ? const Color(0xFF6366F1) : Colors.transparent),
+        border: Border.all(color: _isSearching ? AppColors.primary : Colors.transparent),
       ),
       child: Row(
         children: [
@@ -146,7 +147,7 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
   Widget _buildLiveQueueSidebar(QueueController queue, Appointment? active) {
     return Container(
       width: double.infinity,
-      color: const Color(0xFF0F172A),
+      color: AppColors.background,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -154,7 +155,7 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
             const Padding(
               padding: EdgeInsets.fromLTRB(24, 16, 24, 8),
               child: Text("UPCOMING QUEUE",
-                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: Color(0xFF6366F1), letterSpacing: 1.5)),
+                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: AppColors.primary, letterSpacing: 1.5)),
             ),
           Expanded(
             child: ListView.builder(
@@ -176,13 +177,13 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: isActive ? const Color(0xFF6366F1) : Colors.white.withOpacity(0.03),
+        color: isActive ? AppColors.primary : Colors.white.withOpacity(0.03),
         borderRadius: BorderRadius.circular(16),
       ),
       child: Row(
         children: [
           CircleAvatar(
-            backgroundColor: isActive ? Colors.white24 : const Color(0xFF6366F1).withOpacity(0.2),
+            backgroundColor: isActive ? Colors.white24 : AppColors.primary.withOpacity(0.2),
             child: Text("${appt.tokenNumber}", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
           ),
           if (!_isWorkspaceHovered) ...[
@@ -239,23 +240,28 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
   }
 
   Widget _buildBreakToggle(QueueController queue) {
+    // Note: Kept specific colors for Break/Active logic as they represent states,
+    // but used AppColors.success/error where applicable logic aligns.
+    final bool onBreak = queue.isOnBreak;
+    final color = onBreak ? Colors.amber : AppColors.success;
+
     return InkWell(
       onTap: () => queue.toggleBreak(),
       borderRadius: BorderRadius.circular(12),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
-          color: queue.isOnBreak ? Colors.amber.withOpacity(0.1) : Colors.green.withOpacity(0.1),
+          color: color.withOpacity(0.1),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: queue.isOnBreak ? Colors.amber : Colors.green),
+          border: Border.all(color: color),
         ),
         child: Row(
           children: [
-            Icon(queue.isOnBreak ? Icons.coffee : Icons.play_circle_fill,
-                size: 16, color: queue.isOnBreak ? Colors.amber : Colors.green),
+            Icon(onBreak ? Icons.coffee : Icons.play_circle_fill,
+                size: 16, color: color),
             const SizedBox(width: 8),
-            Text(queue.isOnBreak ? "ON BREAK" : "ACTIVE",
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: queue.isOnBreak ? Colors.amber : Colors.green)),
+            Text(onBreak ? "ON BREAK" : "ACTIVE",
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: color)),
           ],
         ),
       ),
@@ -273,7 +279,7 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
           const SizedBox(height: 40),
           ElevatedButton(
             onPressed: () => queue.toggleBreak(),
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF6366F1), padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 20)),
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 20)),
             child: const Text("RESUME SESSION", style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1)),
           )
         ],

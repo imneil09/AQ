@@ -2,6 +2,12 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+
+// DRY Widgets & Constants
+import '../../widgets/app_colors.dart';
+import '../../widgets/background_blur.dart';
+import '../../widgets/glass_card.dart';
+
 import '../../controllers/queueController.dart';
 import '../../models/appoinmentModel.dart';
 import '../../widgets/appointment.dart';
@@ -36,23 +42,23 @@ class _AssistantHomeViewState extends State<AssistantHomeView>
       appBar: _buildAppBar(queue),
       body: Stack(
         children: [
-          Container(color: const Color(0xFF0F172A)),
-          Positioned(
+          // 1. REFACTOR: Use AppColors
+          Container(color: AppColors.background),
+
+          // 2. REFACTOR: Use BackgroundBlur widget
+          BackgroundBlur(
+            color: AppColors.primary.withOpacity(0.2),
+            size: 300,
             top: -50,
             right: -50,
-            child: _BlurCircle(
-              color: const Color(0xFF6366F1).withOpacity(0.2),
-              size: 300,
-            ),
           ),
-          Positioned(
+          BackgroundBlur(
+            color: AppColors.error.withOpacity(0.1),
+            size: 250,
             bottom: 100,
             left: -80,
-            child: _BlurCircle(
-              color: const Color(0xFFF43F5E).withOpacity(0.1),
-              size: 250,
-            ),
           ),
+
           SafeArea(
             child: queue.clinics.isEmpty
                 ? _buildEmptyState()
@@ -80,14 +86,17 @@ class _AssistantHomeViewState extends State<AssistantHomeView>
           ? FloatingActionButton.extended(
         onPressed: () => Navigator.push(
           context,
-          MaterialPageRoute(builder: (_) => const UnifiedBookingView(isAssistant: true)),
+          MaterialPageRoute(
+              builder: (_) =>
+              const UnifiedBookingView(isAssistant: true)),
         ),
         label: const Text(
           "WALK-IN",
-          style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1.2),
+          style:
+          TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1.2),
         ),
         icon: const Icon(Icons.add_rounded),
-        backgroundColor: const Color(0xFF6366F1),
+        backgroundColor: AppColors.primary,
       )
           : null,
     );
@@ -98,15 +107,17 @@ class _AssistantHomeViewState extends State<AssistantHomeView>
       backgroundColor: Colors.transparent,
       elevation: 0,
       title: queue.clinics.isEmpty
-          ? const Text("Dashboard", style: TextStyle(fontWeight: FontWeight.w900))
+          ? const Text("Dashboard",
+          style: TextStyle(fontWeight: FontWeight.w900))
           : Row(
         children: [
           Expanded(
             child: DropdownButtonHideUnderline(
               child: DropdownButton<String>(
                 value: queue.selectedClinic?.id,
-                dropdownColor: const Color(0xFF1E293B),
-                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                dropdownColor: AppColors.surface,
+                style: const TextStyle(
+                    color: Colors.white, fontWeight: FontWeight.bold),
                 items: queue.clinics.map((clinic) {
                   return DropdownMenuItem<String>(
                     value: clinic.id,
@@ -115,7 +126,8 @@ class _AssistantHomeViewState extends State<AssistantHomeView>
                 }).toList(),
                 onChanged: (clinicId) {
                   if (clinicId != null) {
-                    final selected = queue.clinics.firstWhere((c) => c.id == clinicId);
+                    final selected =
+                    queue.clinics.firstWhere((c) => c.id == clinicId);
                     queue.selectClinic(selected);
                   }
                 },
@@ -124,13 +136,15 @@ class _AssistantHomeViewState extends State<AssistantHomeView>
           ),
           // EDIT CLINIC BUTTON
           IconButton(
-            icon: const Icon(Icons.edit_note_rounded, color: Colors.white70),
+            icon: const Icon(Icons.edit_note_rounded,
+                color: Colors.white70),
             onPressed: () {
               if (queue.selectedClinic != null) {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (_) => CreateClinicView(clinic: queue.selectedClinic),
+                    builder: (_) =>
+                        CreateClinicView(clinic: queue.selectedClinic),
                   ),
                 );
               }
@@ -147,7 +161,8 @@ class _AssistantHomeViewState extends State<AssistantHomeView>
           ),
         ),
         IconButton(
-          icon: const Icon(Icons.receipt_long_rounded, color: Color(0xFF6366F1)),
+          icon: const Icon(Icons.receipt_long_rounded,
+              color: AppColors.primary),
           onPressed: () => Navigator.push(
             context,
             MaterialPageRoute(builder: (_) => const HistoryView(isAdmin: true)),
@@ -155,12 +170,13 @@ class _AssistantHomeViewState extends State<AssistantHomeView>
         ),
         PopupMenuButton<String>(
           icon: const Icon(Icons.more_vert_rounded, color: Colors.white70),
-          color: const Color(0xFF1E293B),
+          color: AppColors.surface,
           onSelected: (value) {
             if (value == 'close') queue.emergencyClose();
             if (value == 'logout') {
               FirebaseAuth.instance.signOut();
-              Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const AuthView()));
+              Navigator.pushReplacement(
+                  context, MaterialPageRoute(builder: (_) => const AuthView()));
             }
           },
           itemBuilder: (context) => [
@@ -168,9 +184,11 @@ class _AssistantHomeViewState extends State<AssistantHomeView>
               value: 'close',
               child: Row(
                 children: [
-                  Icon(Icons.warning_amber_rounded, color: Color(0xFFF43F5E), size: 20),
+                  Icon(Icons.warning_amber_rounded,
+                      color: AppColors.error, size: 20),
                   SizedBox(width: 12),
-                  Text("Emergency Close", style: TextStyle(color: Colors.white)),
+                  Text("Emergency Close",
+                      style: TextStyle(color: Colors.white)),
                 ],
               ),
             ),
@@ -192,9 +210,12 @@ class _AssistantHomeViewState extends State<AssistantHomeView>
   }
 
   Widget _buildMetricsHeader(QueueController queue) {
-    // Calculating completed and cancelled counts from history/controller
-    final completedCount = queue.history.where((e) => e.status == AppointmentStatus.completed).length;
-    final cancelledCount = queue.history.where((e) => e.status == AppointmentStatus.cancelled).length;
+    final completedCount = queue.history
+        .where((e) => e.status == AppointmentStatus.completed)
+        .length;
+    final cancelledCount = queue.history
+        .where((e) => e.status == AppointmentStatus.cancelled)
+        .length;
 
     return Padding(
       padding: const EdgeInsets.all(20),
@@ -204,60 +225,63 @@ class _AssistantHomeViewState extends State<AssistantHomeView>
             "COMPLETED",
             completedCount.toString(),
             Icons.check_circle_outline_rounded,
-            accentColor: Colors.greenAccent,
+            accentColor: AppColors.success,
           ),
           const SizedBox(width: 16),
           _buildMetricCard(
             "CANCELLED",
             cancelledCount.toString(),
             Icons.cancel_outlined,
-            accentColor: const Color(0xFFF43F5E),
+            accentColor: AppColors.error,
           ),
         ],
       ),
     );
   }
 
-  Widget _buildMetricCard(String label, String value, IconData icon, {required Color accentColor}) {
+  Widget _buildMetricCard(String label, String value, IconData icon,
+      {required Color accentColor}) {
+    // 3. REFACTOR: Use GlassCard instead of ClipRRect->BackdropFilter->Container
     return Expanded(
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(24),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-          child: Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: accentColor.withOpacity(0.05),
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(color: Colors.white.withOpacity(0.1)),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Icon(icon, color: accentColor, size: 20),
-                const SizedBox(height: 12),
-                Text(value, style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: Colors.white)),
-                Text(label, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: Colors.white38, letterSpacing: 1.2)),
-              ],
-            ),
-          ),
+      child: GlassCard(
+        radius: 24,
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, color: accentColor, size: 20),
+            const SizedBox(height: 12),
+            Text(value,
+                style: const TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.w900,
+                    color: Colors.white)),
+            Text(label,
+                style: const TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w900,
+                    color: Colors.white38,
+                    letterSpacing: 1.2)),
+          ],
         ),
       ),
     );
   }
 
   Widget _buildSearchBar(QueueController queue) {
+    // 4. REFACTOR: Use AppColors for consistent styling
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 2),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
+        color: AppColors.glassWhite,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withOpacity(0.1)),
+        border: Border.all(color: AppColors.glassBorder),
       ),
       child: TextField(
         onChanged: (val) => queue.updateLiveSearch(val),
-        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        style:
+        const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         decoration: const InputDecoration(
           border: InputBorder.none,
           hintText: "Search waiting patients...",
@@ -273,19 +297,20 @@ class _AssistantHomeViewState extends State<AssistantHomeView>
       margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
+        color: AppColors.glassWhite,
         borderRadius: BorderRadius.circular(24),
       ),
       child: TabBar(
         controller: _tabController,
         indicatorSize: TabBarIndicatorSize.tab,
         indicator: BoxDecoration(
-          color: const Color(0xFF6366F1),
+          color: AppColors.primary,
           borderRadius: BorderRadius.circular(18),
         ),
         labelColor: Colors.white,
         unselectedLabelColor: Colors.white38,
-        labelStyle: const TextStyle(fontWeight: FontWeight.w900, fontSize: 11),
+        labelStyle:
+        const TextStyle(fontWeight: FontWeight.w900, fontSize: 11),
         dividerColor: Colors.transparent,
         tabs: [
           Tab(text: "WAITING (${queue.waitingList.length})"),
@@ -302,9 +327,12 @@ class _AssistantHomeViewState extends State<AssistantHomeView>
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.inbox_rounded, size: 64, color: Colors.white.withOpacity(0.05)),
+            Icon(Icons.inbox_rounded,
+                size: 64, color: AppColors.glassWhite),
             const SizedBox(height: 16),
-            const Text("No patients here", style: TextStyle(color: Colors.white24, fontWeight: FontWeight.bold)),
+            const Text("No patients here",
+                style: TextStyle(
+                    color: Colors.white24, fontWeight: FontWeight.bold)),
           ],
         ),
       );
@@ -326,8 +354,10 @@ class _AssistantHomeViewState extends State<AssistantHomeView>
               queue.updateStatus(appt.id, AppointmentStatus.completed);
             }
           },
-          onSkip: () => queue.updateStatus(appt.id, AppointmentStatus.skipped),
-          onCancel: () => queue.updateStatus(appt.id, AppointmentStatus.cancelled),
+          onSkip: () =>
+              queue.updateStatus(appt.id, AppointmentStatus.skipped),
+          onCancel: () =>
+              queue.updateStatus(appt.id, AppointmentStatus.cancelled),
         );
       },
     );
@@ -338,29 +368,13 @@ class _AssistantHomeViewState extends State<AssistantHomeView>
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.add_business_rounded, size: 80, color: Colors.white.withOpacity(0.05)),
+          Icon(Icons.add_business_rounded,
+              size: 80, color: AppColors.glassWhite),
           const SizedBox(height: 16),
-          const Text("No clinics found. Create one to begin.", style: TextStyle(color: Colors.white38, fontWeight: FontWeight.w600)),
+          const Text("No clinics found. Create one to begin.",
+              style: TextStyle(
+                  color: Colors.white38, fontWeight: FontWeight.w600)),
         ],
-      ),
-    );
-  }
-}
-
-class _BlurCircle extends StatelessWidget {
-  final Color color;
-  final double size;
-  const _BlurCircle({required this.color, required this.size});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 80, sigmaY: 80),
-        child: Container(color: Colors.transparent),
       ),
     );
   }

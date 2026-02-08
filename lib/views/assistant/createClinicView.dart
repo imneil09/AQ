@@ -4,6 +4,11 @@ import 'package:provider/provider.dart';
 import '../../controllers/queueController.dart';
 import '../../models/clinicModel.dart';
 
+// DRY Imports
+import '../../widgets/app_colors.dart';
+import '../../widgets/background_blur.dart';
+import '../../widgets/glass_card.dart';
+
 class CreateClinicView extends StatefulWidget {
   final Clinic? clinic;
   const CreateClinicView({super.key, this.clinic});
@@ -92,31 +97,39 @@ class _CreateClinicViewState extends State<CreateClinicView> {
       ),
       body: Stack(
         children: [
-          Container(color: const Color(0xFF0F172A)),
-          Positioned(
+          // 1. REFACTOR: Use AppColors background
+          Container(color: AppColors.background),
+
+          // 2. REFACTOR: Use BackgroundBlur widget
+          BackgroundBlur(
+            color: AppColors.primary.withOpacity(0.25),
+            size: 300,
             top: -50,
             right: -100,
-            child: _BlurCircle(color: const Color(0xFF6366F1).withOpacity(0.25), size: 300),
           ),
-          Positioned(
+          BackgroundBlur(
+            color: AppColors.error.withOpacity(0.15),
+            size: 250,
             bottom: 50,
             left: -80,
-            child: _BlurCircle(color: const Color(0xFFF43F5E).withOpacity(0.15), size: 250),
           ),
+
           SafeArea(
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(24),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildGlassSection(
+                  // 3. REFACTOR: Use GlassCard instead of _buildGlassSection
+                  GlassCard(
+                    padding: const EdgeInsets.all(28),
                     child: Column(
                       children: [
                         _buildLabel("CLINIC NAME"),
                         TextField(
                           controller: _nameCtrl,
                           style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
-                          cursorColor: const Color(0xFF6366F1),
+                          cursorColor: AppColors.primary,
                           decoration: const InputDecoration(hintText: "Enter clinic name"),
                         ),
                         const SizedBox(height: 24),
@@ -124,16 +137,17 @@ class _CreateClinicViewState extends State<CreateClinicView> {
                         TextField(
                           controller: _addrCtrl,
                           style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
-                          cursorColor: const Color(0xFF6366F1),
+                          cursorColor: AppColors.primary,
                           decoration: const InputDecoration(hintText: "Enter clinic address"),
                         ),
                       ],
                     ),
                   ),
+
                   const SizedBox(height: 32),
                   _buildLabel("WEEKLY SCHEDULE"),
 
-                  // UPDATED: Iterate over _daysOrder instead of _schedule.keys
+                  // Iterate over _daysOrder
                   ..._daysOrder.map((day) => _buildScheduleTile(day)),
 
                   const SizedBox(height: 40),
@@ -142,7 +156,7 @@ class _CreateClinicViewState extends State<CreateClinicView> {
                     child: ElevatedButton(
                       onPressed: _save,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF6366F1),
+                        backgroundColor: AppColors.primary,
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 18),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
@@ -168,16 +182,16 @@ class _CreateClinicViewState extends State<CreateClinicView> {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
-        color: s.isOpen ? Colors.white.withOpacity(0.05) : Colors.transparent,
+        color: s.isOpen ? AppColors.glassWhite : Colors.transparent,
         borderRadius: BorderRadius.circular(24),
         border: Border.all(
-          color: s.isOpen ? const Color(0xFF6366F1).withOpacity(0.3) : Colors.white.withOpacity(0.05),
+          color: s.isOpen ? AppColors.primary.withOpacity(0.3) : AppColors.glassWhite,
         ),
       ),
       child: Column(
         children: [
           SwitchListTile(
-            activeColor: const Color(0xFF6366F1),
+            activeColor: AppColors.primary,
             title: Text(
               day,
               style: TextStyle(
@@ -228,7 +242,7 @@ class _CreateClinicViewState extends State<CreateClinicView> {
                         labelStyle: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white38),
                         contentPadding: EdgeInsets.symmetric(horizontal: 20, vertical: 16),
                         enabledBorder: OutlineInputBorder(borderSide: BorderSide.none),
-                        focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: Color(0xFF6366F1))),
+                        focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: AppColors.primary)),
                       ),
                       onChanged: (val) => _schedule[day] = ClinicSchedule(
                         isOpen: true,
@@ -252,7 +266,7 @@ class _CreateClinicViewState extends State<CreateClinicView> {
       decoration: BoxDecoration(
         color: Colors.white.withOpacity(0.03),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withOpacity(0.08)),
+        border: Border.all(color: AppColors.glassBorder),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -265,24 +279,6 @@ class _CreateClinicViewState extends State<CreateClinicView> {
     );
   }
 
-  Widget _buildGlassSection({required Widget child}) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(32),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
-        child: Container(
-          padding: const EdgeInsets.all(28),
-          decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.05),
-            borderRadius: BorderRadius.circular(32),
-            border: Border.all(color: Colors.white.withOpacity(0.1)),
-          ),
-          child: child,
-        ),
-      ),
-    );
-  }
-
   Widget _buildLabel(String text) {
     return Padding(
       padding: const EdgeInsets.only(left: 4, bottom: 10),
@@ -291,28 +287,9 @@ class _CreateClinicViewState extends State<CreateClinicView> {
         style: const TextStyle(
           fontSize: 10,
           fontWeight: FontWeight.w900,
-          color: Color(0xFF94A3B8),
+          color: Color(0xFF94A3B8), // Keeping specific slate color for labels
           letterSpacing: 1.5,
         ),
-      ),
-    );
-  }
-}
-
-class _BlurCircle extends StatelessWidget {
-  final Color color;
-  final double size;
-  const _BlurCircle({required this.color, required this.size});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 80, sigmaY: 80),
-        child: Container(color: Colors.transparent),
       ),
     );
   }

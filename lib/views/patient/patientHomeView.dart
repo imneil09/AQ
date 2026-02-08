@@ -3,6 +3,12 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
+
+// Imports for DRY widgets
+import '../../widgets/app_colors.dart';
+import '../../widgets/background_blur.dart';
+import '../../widgets/glass_card.dart';
+
 import '../../controllers/queueController.dart';
 import '../../models/appoinmentModel.dart';
 import '../historyView.dart';
@@ -71,15 +77,28 @@ class _PatientHomeViewState extends State<PatientHomeView> with SingleTickerProv
                 onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const HistoryView(isAdmin: false))),
               ),
               actions: [
-                IconButton(icon: const Icon(Icons.logout_rounded, color: Color(0xFFF43F5E)), onPressed: _logout),
+                IconButton(icon: const Icon(Icons.logout_rounded, color: AppColors.error), onPressed: _logout),
                 const SizedBox(width: 8),
               ],
             ),
             body: Stack(
               children: [
-                Container(color: const Color(0xFF0F172A)),
-                Positioned(top: -50, right: -50, child: _BlurCircle(color: const Color(0xFF6366F1).withOpacity(0.15), size: 300)),
-                Positioned(bottom: 100, left: -80, child: _BlurCircle(color: const Color(0xFF10B981).withOpacity(0.1), size: 250)),
+                // 1. REFACTOR: Use AppColors.background
+                Container(color: AppColors.background),
+
+                // 2. REFACTOR: Use BackgroundBlur widget
+                BackgroundBlur(
+                  color: AppColors.primary.withOpacity(0.15),
+                  size: 300,
+                  top: -50,
+                  right: -50,
+                ),
+                BackgroundBlur(
+                  color: AppColors.success.withOpacity(0.1),
+                  size: 250,
+                  bottom: 100,
+                  left: -80,
+                ),
 
                 SafeArea(
                   child: Column(
@@ -98,7 +117,7 @@ class _PatientHomeViewState extends State<PatientHomeView> with SingleTickerProv
             floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
             floatingActionButton: FloatingActionButton.extended(
               onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const UnifiedBookingView(isAssistant: false))),
-              backgroundColor: const Color(0xFF6366F1),
+              backgroundColor: AppColors.primary,
               icon: const Icon(Icons.add_rounded, color: Colors.white),
               label: const Text("NEW", style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1)),
             ),
@@ -129,45 +148,45 @@ class _PatientHomeViewState extends State<PatientHomeView> with SingleTickerProv
   }
 
   Widget _buildCollapsedCard(Appointment appt, bool isLive) {
-    Color themeColor = isLive ? const Color(0xFF6366F1) : const Color(0xFF10B981);
+    Color themeColor = isLive ? AppColors.primary : AppColors.success;
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.white.withOpacity(0.1)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(color: themeColor.withOpacity(0.1), shape: BoxShape.circle),
-            child: Text("#${appt.tokenNumber}", style: TextStyle(color: themeColor, fontWeight: FontWeight.bold)),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  isLive ? "LIVE NOW" : DateFormat('EEE, MMM dd').format(appt.appointmentDate),
-                  style: TextStyle(color: themeColor, fontWeight: FontWeight.w900, fontSize: 12, letterSpacing: 1),
-                ),
-                Text(appt.serviceType, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
-              ],
+    // 3. REFACTOR: Use GlassCard widget
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: GlassCard(
+        padding: const EdgeInsets.all(20),
+        radius: 24,
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(color: themeColor.withOpacity(0.1), shape: BoxShape.circle),
+              child: Text("#${appt.tokenNumber}", style: TextStyle(color: themeColor, fontWeight: FontWeight.bold)),
             ),
-          ),
-          Icon(Icons.unfold_more_rounded, color: Colors.white.withOpacity(0.2)),
-        ],
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    isLive ? "LIVE NOW" : DateFormat('EEE, MMM dd').format(appt.appointmentDate),
+                    style: TextStyle(color: themeColor, fontWeight: FontWeight.w900, fontSize: 12, letterSpacing: 1),
+                  ),
+                  Text(appt.serviceType, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+                ],
+              ),
+            ),
+            Icon(Icons.unfold_more_rounded, color: Colors.white.withOpacity(0.2)),
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildExpandedTicket(Appointment appt, QueueController queue, bool isLive) {
-    Color themeColor = isLive ? const Color(0xFF6366F1) : const Color(0xFF10B981);
+    Color themeColor = isLive ? AppColors.primary : AppColors.success;
 
+    // Kept standard Container to maintain specific border/header design, but updated Colors
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
@@ -226,25 +245,24 @@ class _PatientHomeViewState extends State<PatientHomeView> with SingleTickerProv
   Widget _buildAnimatedMessage() {
     return ScaleTransition(
       scale: _messageScale,
-      child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.05),
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: Colors.white.withOpacity(0.1)),
-        ),
-        child: const Row(
-          children: [
-            Icon(Icons.auto_awesome_rounded, color: Color(0xFF10B981), size: 28),
-            SizedBox(width: 16),
-            Expanded(
-              child: Text(
-                "Your health is an investment, not an expense. Stay energized!",
-                style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 14),
+      // 4. REFACTOR: Use GlassCard widget
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+        child: GlassCard(
+          padding: const EdgeInsets.all(20),
+          radius: 24,
+          child: const Row(
+            children: [
+              Icon(Icons.auto_awesome_rounded, color: AppColors.success, size: 28),
+              SizedBox(width: 16),
+              Expanded(
+                child: Text(
+                  "Your health is an investment, not an expense. Stay energized!",
+                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 14),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -275,22 +293,6 @@ class _PatientHomeViewState extends State<PatientHomeView> with SingleTickerProv
         Text(label, style: const TextStyle(color: Colors.white24, fontWeight: FontWeight.w800, fontSize: 12)),
         Text(value, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
       ],
-    );
-  }
-}
-
-class _BlurCircle extends StatelessWidget {
-  final Color color;
-  final double size;
-  const _BlurCircle({required this.color, required this.size});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-      child: BackdropFilter(filter: ImageFilter.blur(sigmaX: 80, sigmaY: 80), child: Container(color: Colors.transparent)),
     );
   }
 }

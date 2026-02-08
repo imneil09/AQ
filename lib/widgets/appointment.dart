@@ -2,6 +2,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/appoinmentModel.dart';
+import 'app_colors.dart'; // Ensure this matches your directory structure (e.g., ../widgets/app_colors.dart)
 
 class AppointmentCard extends StatelessWidget {
   final Appointment appointment;
@@ -23,12 +24,9 @@ class AppointmentCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final bool isDone = appointment.status == AppointmentStatus.completed;
     final bool isActive = appointment.status == AppointmentStatus.active;
-    final bool isSkipped = appointment.status == AppointmentStatus.skipped; // UPDATED
+    final bool isSkipped = appointment.status == AppointmentStatus.skipped;
 
-    // Dynamic Color Palette
-    final Color accentColor = isSkipped
-        ? const Color(0xFFF59E0B) // Amber for Skipped (Updated from Rose)
-        : (isActive ? const Color(0xFF10B981) : const Color(0xFF6366F1));
+    final Color accentColor = _getAccentColor(appointment.status);
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
@@ -38,7 +36,7 @@ class AppointmentCard extends StatelessWidget {
           filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
           child: Container(
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.05),
+              color: AppColors.glassWhite,
               borderRadius: BorderRadius.circular(28),
               border: Border.all(
                 color: accentColor.withOpacity(isActive ? 0.4 : 0.1),
@@ -102,7 +100,7 @@ class AppointmentCard extends StatelessWidget {
                   Container(
                     width: 1,
                     margin: const EdgeInsets.symmetric(vertical: 20),
-                    color: Colors.white.withOpacity(0.1),
+                    color: AppColors.glassBorder,
                   ),
 
                   // Info Content Section
@@ -125,7 +123,6 @@ class AppointmentCard extends StatelessWidget {
                           const SizedBox(height: 8),
                           Row(
                             children: [
-                              // Updated Status Label Logic
                               Text(
                                 isSkipped
                                     ? "SKIPPED"
@@ -180,7 +177,7 @@ class AppointmentCard extends StatelessWidget {
                             _buildActionButton(
                               icon: Icons.restore_rounded,
                               color: Colors.blueAccent,
-                              onTap: onStatusNext, // This triggers recallPatient in AdminHomeView
+                              onTap: onStatusNext,
                             ),
 
                           // 3. If Not Skipped -> Show Next/Check
@@ -203,6 +200,17 @@ class AppointmentCard extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Color _getAccentColor(AppointmentStatus status) {
+    switch (status) {
+      case AppointmentStatus.skipped:
+        return Colors.amber; // Or define a warning color in AppColors
+      case AppointmentStatus.active:
+        return AppColors.success;
+      default:
+        return AppColors.primary;
+    }
   }
 
   Widget _buildActionButton({

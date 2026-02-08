@@ -2,8 +2,14 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
-import '../../controllers/queueController.dart'; //
-import '../../models/clinicModel.dart'; //
+
+// Imports for DRY widgets
+import '../widgets/app_colors.dart';
+import '../widgets/background_blur.dart';
+import '../widgets/glass_card.dart';
+
+import '../../controllers/queueController.dart';
+import '../../models/clinicModel.dart';
 
 class UnifiedBookingView extends StatefulWidget {
   final bool isAssistant;
@@ -26,10 +32,10 @@ class _UnifiedBookingViewState extends State<UnifiedBookingView> {
   @override
   void initState() {
     super.initState();
-    final queue = Provider.of<QueueController>(context, listen: false); //
+    final queue = Provider.of<QueueController>(context, listen: false);
 
     if (widget.isAssistant) {
-      _selectedClinic = queue.selectedClinic; //
+      _selectedClinic = queue.selectedClinic;
     }
   }
 
@@ -48,15 +54,15 @@ class _UnifiedBookingViewState extends State<UnifiedBookingView> {
       lastDate: DateTime.now().add(const Duration(days: 30)),
       selectableDayPredicate: _selectedClinic == null
           ? null
-          : (d) => _selectedClinic!.weeklySchedule[DateFormat('EEEE').format(d)]?.isOpen ?? false, //
+          : (d) => _selectedClinic!.weeklySchedule[DateFormat('EEEE').format(d)]?.isOpen ?? false,
       builder: (context, child) => Theme(
         data: ThemeData.dark().copyWith(
           colorScheme: const ColorScheme.dark(
-            primary: Color(0xFF6366F1),
-            surface: Color(0xFF1E293B),
+            primary: AppColors.primary, // DRY: Use AppColors
+            surface: AppColors.surface,
             onSurface: Colors.white,
           ),
-          dialogBackgroundColor: const Color(0xFF0F172A), //
+          dialogBackgroundColor: AppColors.background,
         ),
         child: child!,
       ),
@@ -69,7 +75,7 @@ class _UnifiedBookingViewState extends State<UnifiedBookingView> {
 
     setState(() => _isLoading = true);
     try {
-      await Provider.of<QueueController>(context, listen: false).bookAppointment( //
+      await Provider.of<QueueController>(context, listen: false).bookAppointment(
         name: _nameController.text,
         phone: _phoneController.text,
         service: _selectedService,
@@ -79,7 +85,7 @@ class _UnifiedBookingViewState extends State<UnifiedBookingView> {
       if (mounted) Navigator.pop(context);
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.toString()), backgroundColor: Colors.redAccent)
+          SnackBar(content: Text(e.toString()), backgroundColor: AppColors.error)
       );
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -88,7 +94,7 @@ class _UnifiedBookingViewState extends State<UnifiedBookingView> {
 
   @override
   Widget build(BuildContext context) {
-    final queue = Provider.of<QueueController>(context); //
+    final queue = Provider.of<QueueController>(context);
 
     return Scaffold(
       extendBodyBehindAppBar: true,
@@ -103,16 +109,32 @@ class _UnifiedBookingViewState extends State<UnifiedBookingView> {
       ),
       body: Stack(
         children: [
-          Container(color: const Color(0xFF0F172A)), //
-          _buildBlurCircle(const Color(0xFF6366F1), 320, top: -60, right: -100),
-          _buildBlurCircle(const Color(0xFFF43F5E), 280, bottom: 40, left: -80),
+          // 1. REFACTOR: Use AppColors
+          Container(color: AppColors.background),
+
+          // 2. REFACTOR: Use BackgroundBlur widget
+          BackgroundBlur(
+            color: AppColors.primary.withOpacity(0.12),
+            size: 320,
+            top: -60,
+            right: -100,
+          ),
+          BackgroundBlur(
+            color: AppColors.error.withOpacity(0.12),
+            size: 280,
+            bottom: 40,
+            left: -80,
+          ),
+
           SafeArea(
             child: Center(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
                 child: Form(
                   key: _formKey,
-                  child: _buildGlassContainer(
+                  // 3. REFACTOR: Use GlassCard widget
+                  child: GlassCard(
+                    padding: const EdgeInsets.all(32),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -158,24 +180,6 @@ class _UnifiedBookingViewState extends State<UnifiedBookingView> {
 
   // --- UI Component Helpers ---
 
-  Widget _buildGlassContainer({required Widget child}) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(32),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18), //
-        child: Container(
-          padding: const EdgeInsets.all(32),
-          decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.04),
-            border: Border.all(color: Colors.white.withOpacity(0.08)),
-            borderRadius: BorderRadius.circular(32),
-          ),
-          child: child,
-        ),
-      ),
-    );
-  }
-
   Widget _buildTextField(TextEditingController controller, String hint, {bool isPhone = false, required IconData icon}) {
     return TextFormField(
       controller: controller,
@@ -183,7 +187,7 @@ class _UnifiedBookingViewState extends State<UnifiedBookingView> {
       style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 15),
       decoration: _inputStyle(hint, icon).copyWith(
         prefixText: isPhone ? "+91 " : null,
-        prefixStyle: const TextStyle(color: Color(0xFF6366F1), fontWeight: FontWeight.bold),
+        prefixStyle: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold),
       ),
       validator: (v) => v!.isEmpty ? "This field is required" : null,
     );
@@ -192,9 +196,9 @@ class _UnifiedBookingViewState extends State<UnifiedBookingView> {
   Widget _buildClinicDropdown(QueueController queue) {
     return DropdownButtonFormField<Clinic>(
       value: _selectedClinic,
-      dropdownColor: const Color(0xFF1E293B),
+      dropdownColor: AppColors.surface,
       icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Colors.white38),
-      items: queue.clinics.map((c) => DropdownMenuItem( //
+      items: queue.clinics.map((c) => DropdownMenuItem(
           value: c,
           child: Text(c.name, style: const TextStyle(color: Colors.white, fontSize: 15))
       )).toList(),
@@ -207,7 +211,7 @@ class _UnifiedBookingViewState extends State<UnifiedBookingView> {
   Widget _buildServiceDropdown() {
     return DropdownButtonFormField<String>(
       value: _selectedService,
-      dropdownColor: const Color(0xFF1E293B),
+      dropdownColor: AppColors.surface,
       icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Colors.white38),
       items: ['New Consultation', 'Follow-up', 'Reports Show', 'Emergency']
           .map((s) => DropdownMenuItem(
@@ -215,7 +219,7 @@ class _UnifiedBookingViewState extends State<UnifiedBookingView> {
           child: Text(s, style: const TextStyle(color: Colors.white, fontSize: 15))
       )).toList(),
       onChanged: (v) => setState(() => _selectedService = v!),
-      decoration: _inputStyle("Purpose of visit", Icons.assignment_outlined), // FIX: Lowercase 'a'
+      decoration: _inputStyle("Purpose of visit", Icons.assignment_outlined),
     );
   }
 
@@ -226,13 +230,13 @@ class _UnifiedBookingViewState extends State<UnifiedBookingView> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.03),
+          color: AppColors.glassWhite.withOpacity(0.03),
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: Colors.white.withOpacity(0.08)),
+          border: Border.all(color: AppColors.glassBorder),
         ),
         child: Row(
           children: [
-            const Icon(Icons.calendar_month_rounded, color: Color(0xFF6366F1), size: 22),
+            const Icon(Icons.calendar_month_rounded, color: AppColors.primary, size: 22),
             const SizedBox(width: 16),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -260,7 +264,7 @@ class _UnifiedBookingViewState extends State<UnifiedBookingView> {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF6366F1).withOpacity(0.3),
+            color: AppColors.primary.withOpacity(0.3),
             blurRadius: 20,
             offset: const Offset(0, 10),
           )
@@ -269,7 +273,7 @@ class _UnifiedBookingViewState extends State<UnifiedBookingView> {
       child: ElevatedButton(
         onPressed: _isLoading ? null : _submit,
         style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF6366F1),
+          backgroundColor: AppColors.primary,
           foregroundColor: Colors.white,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           elevation: 0,
@@ -288,21 +292,21 @@ class _UnifiedBookingViewState extends State<UnifiedBookingView> {
     return InputDecoration(
       hintText: hint,
       hintStyle: const TextStyle(color: Colors.white24, fontSize: 14),
-      prefixIcon: Icon(icon, color: const Color(0xFF6366F1), size: 20),
+      prefixIcon: Icon(icon, color: AppColors.primary, size: 20),
       filled: true,
-      fillColor: Colors.white.withOpacity(0.03),
+      fillColor: AppColors.glassWhite.withOpacity(0.03),
       contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
       border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(20),
-          borderSide: BorderSide(color: Colors.white.withOpacity(0.08))
+          borderSide: BorderSide(color: AppColors.glassBorder)
       ),
       enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(20),
-          borderSide: BorderSide(color: Colors.white.withOpacity(0.08))
+          borderSide: BorderSide(color: AppColors.glassBorder)
       ),
       focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(20),
-          borderSide: const BorderSide(color: Color(0xFF6366F1), width: 1.5)
+          borderSide: const BorderSide(color: AppColors.primary, width: 1.5)
       ),
     );
   }
@@ -315,23 +319,9 @@ class _UnifiedBookingViewState extends State<UnifiedBookingView> {
           style: const TextStyle(
               fontSize: 10,
               fontWeight: FontWeight.w900,
-              color: Color(0xFF94A3B8),
+              color: Color(0xFF94A3B8), // Slate-400 equivalent
               letterSpacing: 1.8
           )
-      ),
-    );
-  }
-
-  Widget _buildBlurCircle(Color color, double size, {double? top, double? right, double? bottom, double? left}) {
-    return Positioned(
-      top: top, right: right, bottom: bottom, left: left,
-      child: Container(
-        width: size, height: size,
-        decoration: BoxDecoration(color: color.withOpacity(0.12), shape: BoxShape.circle),
-        child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 80, sigmaY: 80),
-            child: Container(color: Colors.transparent)
-        ),
       ),
     );
   }

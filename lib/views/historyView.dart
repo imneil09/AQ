@@ -2,6 +2,12 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
+
+// Imports for DRY widgets
+import '../widgets/app_colors.dart';
+import '../widgets/background_blur.dart';
+import '../widgets/glass_card.dart';
+
 import '../controllers/queueController.dart';
 import '../models/appoinmentModel.dart';
 
@@ -23,7 +29,6 @@ class _HistoryViewState extends State<HistoryView> {
 
     return Scaffold(
       extendBodyBehindAppBar: true,
-      // Standard App Bar to match other pages
       appBar: AppBar(
         title: Text(
           widget.isAdmin ? "Patient's Records" : "Records",
@@ -35,11 +40,22 @@ class _HistoryViewState extends State<HistoryView> {
       ),
       body: Stack(
         children: [
-          Container(color: const Color(0xFF0F172A)),
+          // 1. REFACTOR: Use AppColors.background
+          Container(color: AppColors.background),
 
-          // Background Accents
-          Positioned(top: -100, right: -100, child: _BlurCircle(color: const Color(0xFF6366F1).withOpacity(0.15), size: 400)),
-          Positioned(bottom: -50, left: -100, child: _BlurCircle(color: const Color(0xFFF43F5E).withOpacity(0.1), size: 350)),
+          // 2. REFACTOR: Use BackgroundBlur widget
+          BackgroundBlur(
+            color: AppColors.primary.withOpacity(0.15),
+            size: 400,
+            top: -100,
+            right: -100,
+          ),
+          BackgroundBlur(
+            color: AppColors.error.withOpacity(0.1),
+            size: 350,
+            bottom: -50,
+            left: -100,
+          ),
 
           SafeArea(
             child: Column(
@@ -51,13 +67,16 @@ class _HistoryViewState extends State<HistoryView> {
                     stream: historyStream,
                     builder: (context, snapshot) {
                       if (snapshot.connectionState == ConnectionState.waiting) {
-                        return const Center(child: CircularProgressIndicator(color: Color(0xFF6366F1)));
+                        return const Center(child: CircularProgressIndicator(color: AppColors.primary));
                       }
 
                       var appointments = snapshot.data ?? [];
 
+                      // Apply Client-side filtering
                       if (_activeFilter != 'ALL') {
-                        appointments = appointments.where((a) => a.status.name.toUpperCase() == _activeFilter).toList();
+                        // Normalize the filter string to match Enum names
+                        String filterStatus = _activeFilter == 'COMPLETED' ? 'COMPLETED' : 'CANCELLED';
+                        appointments = appointments.where((a) => a.status.name.toUpperCase() == filterStatus).toList();
                       }
 
                       if (appointments.isEmpty) return _buildEmptyState();
@@ -66,9 +85,17 @@ class _HistoryViewState extends State<HistoryView> {
                         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                         physics: const BouncingScrollPhysics(),
                         itemCount: appointments.length,
-                        itemBuilder: (context, index) => _GlassHistoryCard(
-                            appt: appointments[index],
-                            showPhone: widget.isAdmin
+                        itemBuilder: (context, index) => Padding(
+                          padding: const EdgeInsets.only(bottom: 16),
+                          // 3. REFACTOR: Use GlassCard wrapper
+                          child: GlassCard(
+                            radius: 24,
+                            padding: const EdgeInsets.all(20),
+                            child: _HistoryItemContent(
+                              appt: appointments[index],
+                              showPhone: widget.isAdmin,
+                            ),
+                          ),
                         ),
                       );
                     },
@@ -83,22 +110,21 @@ class _HistoryViewState extends State<HistoryView> {
   }
 
   Widget _buildSearchBar(QueueController queue) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.03),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withOpacity(0.07)),
-      ),
-      child: TextField(
-        onChanged: (val) => queue.updateHistorySearch(val),
-        style: const TextStyle(color: Colors.white, fontSize: 14),
-        decoration: const InputDecoration(
-          border: InputBorder.none,
-          hintText: "Search records...",
-          hintStyle: TextStyle(color: Colors.white24, fontSize: 14),
-          icon: Icon(Icons.search_rounded, color: Colors.white24, size: 20),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+      // 4. REFACTOR: Use GlassCard for Search Bar
+      child: GlassCard(
+        radius: 20,
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        child: TextField(
+          onChanged: (val) => queue.updateHistorySearch(val),
+          style: const TextStyle(color: Colors.white, fontSize: 14),
+          decoration: const InputDecoration(
+            border: InputBorder.none,
+            hintText: "Search records...",
+            hintStyle: TextStyle(color: Colors.white24, fontSize: 14),
+            icon: Icon(Icons.search_rounded, color: Colors.white24, size: 20),
+          ),
         ),
       ),
     );
@@ -109,21 +135,22 @@ class _HistoryViewState extends State<HistoryView> {
     return Container(
       height: 45,
       margin: const EdgeInsets.symmetric(vertical: 10),
-      child: ListView.builder(
+      child: ListView.separated(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 20),
         itemCount: filters.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 12),
         itemBuilder: (context, index) {
           bool isActive = _activeFilter == filters[index];
           return GestureDetector(
             onTap: () => setState(() => _activeFilter = filters[index]),
-            child: Container(
-              margin: const EdgeInsets.only(right: 12),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
               padding: const EdgeInsets.symmetric(horizontal: 24),
               decoration: BoxDecoration(
-                color: isActive ? const Color(0xFF6366F1) : Colors.white.withOpacity(0.03),
+                color: isActive ? AppColors.primary : AppColors.glassWhite,
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: isActive ? Colors.transparent : Colors.white.withOpacity(0.07)),
+                border: Border.all(color: isActive ? Colors.transparent : AppColors.glassBorder),
               ),
               child: Center(
                 child: Text(
@@ -157,115 +184,74 @@ class _HistoryViewState extends State<HistoryView> {
   }
 }
 
-class _GlassHistoryCard extends StatelessWidget {
+class _HistoryItemContent extends StatelessWidget {
   final Appointment appt;
   final bool showPhone;
-  const _GlassHistoryCard({required this.appt, required this.showPhone});
+  const _HistoryItemContent({required this.appt, required this.showPhone});
 
   @override
   Widget build(BuildContext context) {
     final statusColor = _getStatusColor(appt.status);
 
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.only(bottom: 16),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.white.withOpacity(0.08)),
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Colors.white.withOpacity(0.05), Colors.white.withOpacity(0.01)],
+    return Row(
+      children: [
+        // Status Icon
+        Container(
+          height: 46, width: 46,
+          decoration: BoxDecoration(color: statusColor.withOpacity(0.12), borderRadius: BorderRadius.circular(16)),
+          child: Icon(_getStatusIcon(appt.status), color: statusColor, size: 22),
         ),
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(24),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Row(
-              children: [
-                _StatusIcon(status: appt.status, color: statusColor),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(appt.customerName, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 17)),
-                      const SizedBox(height: 4),
-                      if (showPhone)
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 4),
-                          child: Text(appt.phoneNumber, style: TextStyle(color: Colors.white.withOpacity(0.3), fontSize: 13, fontWeight: FontWeight.w600)),
-                        ),
-                      Text(
-                        "${appt.serviceType} • ${DateFormat('MMM dd, yyyy').format(appt.appointmentDate)}",
-                        style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 12, fontWeight: FontWeight.bold),
-                      ),
-                    ],
-                  ),
+        const SizedBox(width: 16),
+
+        // Info
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(appt.customerName, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 17)),
+              const SizedBox(height: 4),
+              if (showPhone)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: Text(appt.phoneNumber, style: TextStyle(color: Colors.white.withOpacity(0.3), fontSize: 13, fontWeight: FontWeight.w600)),
                 ),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text("#${appt.tokenNumber}", style: TextStyle(color: statusColor, fontWeight: FontWeight.w900, fontSize: 22)),
-                    const SizedBox(height: 2),
-                    Text(
-                      appt.status.name.toUpperCase(),
-                      style: TextStyle(color: statusColor.withOpacity(0.7), fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 0.5),
-                    ),
-                  ],
-                ),
-              ],
-            ),
+              Text(
+                "${appt.serviceType} • ${DateFormat('MMM dd, yyyy').format(appt.appointmentDate)}",
+                style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 12, fontWeight: FontWeight.bold),
+              ),
+            ],
           ),
         ),
-      ),
+
+        // Token & Status Text
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Text("#${appt.tokenNumber}", style: TextStyle(color: statusColor, fontWeight: FontWeight.w900, fontSize: 22)),
+            const SizedBox(height: 2),
+            Text(
+              appt.status.name.toUpperCase(),
+              style: TextStyle(color: statusColor.withOpacity(0.7), fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 0.5),
+            ),
+          ],
+        ),
+      ],
     );
   }
 
   Color _getStatusColor(AppointmentStatus status) {
     switch (status) {
-      case AppointmentStatus.completed: return const Color(0xFF10B981);
-      case AppointmentStatus.cancelled: return const Color(0xFFF43F5E);
-      default: return const Color(0xFF6366F1);
+      case AppointmentStatus.completed: return AppColors.success;
+      case AppointmentStatus.cancelled: return AppColors.error;
+      default: return AppColors.primary;
     }
   }
-}
 
-class _StatusIcon extends StatelessWidget {
-  final AppointmentStatus status;
-  final Color color;
-  const _StatusIcon({required this.status, required this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    IconData icon;
+  IconData _getStatusIcon(AppointmentStatus status) {
     switch (status) {
-      case AppointmentStatus.completed: icon = Icons.check_rounded; break;
-      case AppointmentStatus.cancelled: icon = Icons.close_rounded; break;
-      default: icon = Icons.history_rounded;
+      case AppointmentStatus.completed: return Icons.check_rounded;
+      case AppointmentStatus.cancelled: return Icons.close_rounded;
+      default: return Icons.history_rounded;
     }
-    return Container(
-      height: 46, width: 46,
-      decoration: BoxDecoration(color: color.withOpacity(0.12), borderRadius: BorderRadius.circular(16)),
-      child: Icon(icon, color: color, size: 22),
-    );
-  }
-}
-
-class _BlurCircle extends StatelessWidget {
-  final Color color;
-  final double size;
-  const _BlurCircle({required this.color, required this.size});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: size, height: size,
-      decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-      child: BackdropFilter(filter: ImageFilter.blur(sigmaX: 70, sigmaY: 70), child: Container(color: Colors.transparent)),
-    );
   }
 }
