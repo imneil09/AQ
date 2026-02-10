@@ -4,9 +4,9 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../../controllers/queueController.dart';
 import '../../models/appoinmentModel.dart';
-import '../../widgets/app_colors.dart'; // Import DRY Colors
-import '../authView.dart';
-import 'prescription_view.dart';
+import '../../widgets/appColors.dart';
+import '../auth.dart';
+import 'prescription.dart';
 
 class DoctorDashboard extends StatefulWidget {
   const DoctorDashboard({super.key});
@@ -25,12 +25,19 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
   static const double _sidebarMinimizedWidth = 80.0;
 
   @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final queue = Provider.of<QueueController>(context);
+    // Logic: The first person in the "active" list is currently in the cabin
     final activePatient = queue.activeQueue.isNotEmpty ? queue.activeQueue.first : null;
 
     return Scaffold(
-      backgroundColor: AppColors.background, // DRY: Standard Background
+      backgroundColor: AppColors.background,
       appBar: _buildModernAppBar(context, queue),
       body: Row(
         children: [
@@ -51,7 +58,7 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
               child: Container(
                 margin: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: AppColors.surface, // DRY: Standard Surface
+                  color: AppColors.surface,
                   borderRadius: BorderRadius.circular(24),
                   border: Border.all(color: AppColors.glassWhite),
                 ),
@@ -135,7 +142,11 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
               child: TextField(
                 controller: _searchCtrl,
                 style: const TextStyle(color: Colors.white, fontSize: 14),
-                decoration: const InputDecoration(hintText: "Search patient...", border: InputBorder.none, hintStyle: TextStyle(color: Colors.white24)),
+                decoration: const InputDecoration(
+                    hintText: "Search patient...",
+                    border: InputBorder.none,
+                    hintStyle: TextStyle(color: Colors.white24)
+                ),
                 onChanged: (v) => queue.updateHistorySearch(v),
               ),
             ),
@@ -213,7 +224,17 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
     if (active != null) {
       return PrescriptionView(
         patient: active,
-        onFinish: () => queue.updateStatus(active.id, AppointmentStatus.completed),
+        onFinish: () {
+          // NOTE: The database update is handled inside PrescriptionView via queue.completeAppointment.
+          // We just show a confirmation here.
+          ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text("Consultation Completed Successfully"),
+                backgroundColor: AppColors.success,
+                duration: Duration(seconds: 2),
+              )
+          );
+        },
       );
     }
 
@@ -240,8 +261,6 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
   }
 
   Widget _buildBreakToggle(QueueController queue) {
-    // Note: Kept specific colors for Break/Active logic as they represent states,
-    // but used AppColors.success/error where applicable logic aligns.
     final bool onBreak = queue.isOnBreak;
     final color = onBreak ? Colors.amber : AppColors.success;
 
@@ -291,7 +310,16 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
     return StreamBuilder<List<Appointment>>(
       stream: queue.assistantFullHistory,
       builder: (context, snapshot) {
-        if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        if (!snapshot.hasData || snapshot.data!.isEmpty) {
+          return const Center(
+              child: Text("No patients found.", style: TextStyle(color: Colors.white38))
+          );
+        }
+
         final results = snapshot.data!;
         return ListView.separated(
           padding: const EdgeInsets.all(32),
@@ -310,7 +338,14 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
       leading: const Icon(Icons.history, color: Colors.white24),
       title: Text(appt.customerName, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
       subtitle: Text("${appt.serviceType} • ${DateFormat('dd MMM yyyy').format(appt.appointmentDate)}", style: const TextStyle(color: Colors.white38)),
-      trailing: const Icon(Icons.chevron_right, color: Colors.white24),
+      trailing: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+            color: appt.status == AppointmentStatus.completed ? AppColors.success.withOpacity(0.2) : Colors.white10,
+            borderRadius: BorderRadius.circular(8)
+        ),
+        child: Text(appt.status.name.toUpperCase(), style: const TextStyle(fontSize: 10, color: Colors.white70)),
+      ),
     );
   }
 

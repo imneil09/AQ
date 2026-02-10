@@ -16,6 +16,7 @@ class PrescriptionPDF {
   /// Main Generation Function
   static Future<void> generateAndPrint({
     required String patientName,
+    required String diagnosis, // <--- ADDED: Backend Field
     required String prevReports,
     required List<Map<String, String>> medicines,
     required String newInvestigations,
@@ -43,11 +44,15 @@ class PrescriptionPDF {
                 child: pw.Row(
                   crossAxisAlignment: pw.CrossAxisAlignment.start,
                   children: [
-                    _buildLeftPanel(prevReports, newInvestigations),
+                    // Left Panel: Diagnosis, Vitals, Reports
+                    _buildLeftPanel(diagnosis, prevReports, newInvestigations),
+
                     pw.SizedBox(width: 20),
                     // Vertical Divider
                     pw.Container(width: 1, height: 400, color: PdfColors.grey300),
                     pw.SizedBox(width: 20),
+
+                    // Right Panel: Medicines (Rx), Diet
                     _buildRightPanel(medicines, dietInstructions),
                   ],
                 ),
@@ -103,12 +108,15 @@ class PrescriptionPDF {
     );
   }
 
-  static pw.Widget _buildLeftPanel(String prevReports, String investigations) {
+  static pw.Widget _buildLeftPanel(String diagnosis, String prevReports, String investigations) {
     return pw.Expanded(
       flex: 1,
       child: pw.Column(
         crossAxisAlignment: pw.CrossAxisAlignment.start,
         children: [
+          // ADDED: Diagnosis Section
+          if (diagnosis.isNotEmpty) _buildSection("CLINICAL DIAGNOSIS", diagnosis),
+
           if (prevReports.isNotEmpty) _buildSection("PREV. REPORTS", prevReports),
 
           _buildSectionHeader("VITALS"),

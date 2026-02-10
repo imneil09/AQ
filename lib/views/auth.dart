@@ -4,14 +4,14 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-// Imports for your new DRY widgets
-import '../widgets/app_colors.dart';
-import '../widgets/background_blur.dart';
-import '../widgets/glass_card.dart';
+// Imports for your DRY widgets
+import '../widgets/appColors.dart';
+import '../widgets/backgroundBlur.dart';
+import '../widgets/glassCard.dart';
 
-import 'patient/patientHomeView.dart';
-import 'assistant/assistantHomeView.dart';
-import 'doctor/doctor_dashboard.dart';
+import 'patient/patientHome.dart';
+import 'assistant/assistantHome.dart';
+import 'doctor/doctorDashboard.dart';
 
 class AuthView extends StatefulWidget {
   const AuthView({super.key});
@@ -41,6 +41,7 @@ class _AuthViewState extends State<AuthView> {
   }
 
   /// WEB-SAFE PLATFORM CHECK
+  /// Used to separate Doctor/Staff (Desktop/Web) from Patients (Mobile)
   bool get _isDoctorPlatform {
     if (kIsWeb) return true;
     return defaultTargetPlatform == TargetPlatform.windows ||
@@ -48,15 +49,22 @@ class _AuthViewState extends State<AuthView> {
         defaultTargetPlatform == TargetPlatform.linux;
   }
 
+  /// ROUTING LOGIC (RBAC)
+  /// 1. Staff (Email Auth) -> Doctor Dashboard (Desktop) OR Assistant View (Mobile)
+  /// 2. Patients (Phone Auth) -> Patient Home (Mobile only)
   void _redirectUser(User user) {
     if (user.email != null && user.email!.isNotEmpty) {
+      // STAFF FLOW
       if (_isDoctorPlatform) {
         Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const DoctorDashboard()));
       } else {
+        // Assistants on mobile/tablet
         Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const AssistantHomeView()));
       }
     } else {
+      // PATIENT FLOW
       if (_isDoctorPlatform) {
+        // Prevent patients from using the Web/Desktop Admin interface
         _auth.signOut();
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Patients must use the Mobile App.")));
       } else {
@@ -66,6 +74,8 @@ class _AuthViewState extends State<AuthView> {
   }
 
   Future<void> _signInWithEmail() async {
+    if (_emailController.text.isEmpty || _passwordController.text.isEmpty) return;
+
     setState(() => _isLoading = true);
     try {
       final cred = await _auth.signInWithEmailAndPassword(
@@ -76,14 +86,18 @@ class _AuthViewState extends State<AuthView> {
         _redirectUser(cred.user!);
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Login Failed: ${e.toString()}")));
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
   }
 
   Future<void> _verifyPhone() async {
-    if (_phoneController.text.length < 10) return;
+    if (_phoneController.text.length < 10) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Please enter a valid 10-digit number")));
+      return;
+    }
+
     setState(() => _isLoading = true);
     await _auth.verifyPhoneNumber(
       phoneNumber: "+91${_phoneController.text.trim()}",
@@ -93,7 +107,7 @@ class _AuthViewState extends State<AuthView> {
       },
       verificationFailed: (e) {
         setState(() => _isLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message!)));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message ?? "Verification Failed")));
       },
       codeSent: (id, _) => setState(() {
         _verificationId = id;
@@ -105,6 +119,8 @@ class _AuthViewState extends State<AuthView> {
   }
 
   Future<void> _signInWithOTP() async {
+    if (_otpController.text.length < 6) return;
+
     setState(() => _isLoading = true);
     try {
       await _auth.signInWithCredential(PhoneAuthProvider.credential(verificationId: _verificationId!, smsCode: _otpController.text.trim()));
@@ -115,16 +131,23 @@ class _AuthViewState extends State<AuthView> {
     }
   }
 
+  /// FIRESTORE INTEGRATION
+  /// Ensures the user exists in the 'users' collection with the correct schema
   Future<void> _handleCustomerSuccess() async {
     final user = _auth.currentUser;
     if (user != null) {
-      final doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+      final userRef = FirebaseFirestore.instance.collection('users').doc(user.uid);
+      final doc = await userRef.get();
+
       if (!doc.exists) {
-        await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
+        // Create new patient document strictly adhering to UserModel
+        await userRef.set({
           'uid': user.uid,
           'phoneNumber': user.phoneNumber,
+          'name': 'Guest Patient', // Default name, can be updated later
           'role': 'patient',
-          'createdAt': FieldValue.serverTimestamp()
+          'isShadowAccount': false,
+          'createdAt': FieldValue.serverTimestamp(),
         });
       }
       if (mounted) _redirectUser(user);

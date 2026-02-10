@@ -2,14 +2,14 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/appoinmentModel.dart';
-import 'app_colors.dart'; // Ensure this matches your directory structure (e.g., ../widgets/app_colors.dart)
+import 'appColors.dart'; // Assumes appColors.dart is in the same directory (lib/widgets/)
 
 class AppointmentCard extends StatelessWidget {
   final Appointment appointment;
   final bool isAdmin;
-  final VoidCallback? onStatusNext;
-  final VoidCallback? onSkip;
-  final VoidCallback? onCancel;
+  final VoidCallback? onStatusNext; // Handles: Call Next, Recall, Finish
+  final VoidCallback? onSkip;       // Handles: Skip
+  final VoidCallback? onCancel;     // Handles: Cancel
 
   const AppointmentCard({
     super.key,
@@ -22,10 +22,14 @@ class AppointmentCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // --- 1. Determine Status Flags ---
     final bool isDone = appointment.status == AppointmentStatus.completed;
+    final bool isCancelled = appointment.status == AppointmentStatus.cancelled;
     final bool isActive = appointment.status == AppointmentStatus.active;
     final bool isSkipped = appointment.status == AppointmentStatus.skipped;
+    final bool isWaiting = appointment.status == AppointmentStatus.waiting;
 
+    // --- 2. Determine Theme Color ---
     final Color accentColor = _getAccentColor(appointment.status);
 
     return Container(
@@ -45,7 +49,7 @@ class AppointmentCard extends StatelessWidget {
               boxShadow: [
                 if (isActive)
                   BoxShadow(
-                    color: accentColor.withOpacity(0.1),
+                    color: accentColor.withOpacity(0.15),
                     blurRadius: 20,
                     spreadRadius: -5,
                   )
@@ -53,8 +57,9 @@ class AppointmentCard extends StatelessWidget {
             ),
             child: IntrinsicHeight(
               child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // Left Accent Branding Strip
+                  // --- LEFT BRANDING STRIP ---
                   Container(
                     width: 6,
                     decoration: BoxDecoration(
@@ -65,7 +70,7 @@ class AppointmentCard extends StatelessWidget {
                     ),
                   ),
 
-                  // Token Section
+                  // --- TOKEN NUMBER SECTION ---
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
                     child: Column(
@@ -96,14 +101,14 @@ class AppointmentCard extends StatelessWidget {
                     ),
                   ),
 
-                  // Elegant Vertical Divider
+                  // --- VERTICAL DIVIDER ---
                   Container(
                     width: 1,
                     margin: const EdgeInsets.symmetric(vertical: 20),
                     color: AppColors.glassBorder,
                   ),
 
-                  // Info Content Section
+                  // --- INFO & DETAILS SECTION ---
                   Expanded(
                     child: Padding(
                       padding: const EdgeInsets.all(20),
@@ -113,6 +118,8 @@ class AppointmentCard extends StatelessWidget {
                         children: [
                           Text(
                             appointment.customerName.toUpperCase(),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
                               fontWeight: FontWeight.w900,
                               fontSize: 16,
@@ -123,22 +130,21 @@ class AppointmentCard extends StatelessWidget {
                           const SizedBox(height: 8),
                           Row(
                             children: [
-                              Text(
-                                isSkipped
-                                    ? "SKIPPED"
-                                    : (isActive ? "NOW SERVING" : "WAITING"),
-                                style: TextStyle(
-                                    color: accentColor,
-                                    fontWeight: FontWeight.w800,
-                                    fontSize: 13
-                                ),
-                              ),
+                              // Status Badge Logic
+                              _buildStatusText(isSkipped, isActive, isCancelled, isDone, accentColor),
+
                               const SizedBox(width: 6),
-                              if (!isSkipped) ...[
+
+                              // Time Logic (Hide if Cancelled/Skipped/Completed)
+                              if (!isSkipped && !isCancelled && !isDone) ...[
                                 Text("•", style: TextStyle(color: Colors.white.withOpacity(0.4))),
                                 const SizedBox(width: 6),
                                 Text(
-                                  isActive ? "NOW" : DateFormat('hh:mm a').format(appointment.estimatedTime ?? DateTime.now()),
+                                  isActive
+                                      ? "NOW"
+                                      : (appointment.estimatedTime != null
+                                      ? DateFormat('hh:mm a').format(appointment.estimatedTime!)
+                                      : "--:--"),
                                   style: TextStyle(
                                     color: accentColor,
                                     fontWeight: FontWeight.w800,
@@ -158,38 +164,53 @@ class AppointmentCard extends StatelessWidget {
                     ),
                   ),
 
-                  // Admin Quick Actions
-                  if (isAdmin && !isDone)
+                  // --- ADMIN QUICK ACTIONS (BACKEND INTEGRATION) ---
+                  if (isAdmin && !isDone && !isCancelled)
                     Padding(
-                      padding: const EdgeInsets.only(right: 12),
+                      padding: const EdgeInsets.only(right: 16),
                       child: Row(
                         children: [
-                          // 1. If Waiting -> Show Skip
-                          if (appointment.status == AppointmentStatus.waiting)
+                          // 1. CANCEL BUTTON (Visible for Waiting & Skipped)
+                          if (onCancel != null && (isWaiting || isSkipped)) ...[
                             _buildActionButton(
-                              icon: Icons.fast_forward_rounded,
+                              icon: Icons.close_rounded,
+                              color: AppColors.error,
+                              onTap: onCancel,
+                              tooltip: "Cancel Appointment",
+                            ),
+                            const SizedBox(width: 8),
+                          ],
+
+                          // 2. SKIP BUTTON (Visible Only for Waiting)
+                          if (onSkip != null && isWaiting) ...[
+                            _buildActionButton(
+                              icon: Icons.u_turn_right_rounded,
                               color: Colors.amberAccent,
                               onTap: onSkip,
+                              tooltip: "Skip Patient",
                             ),
-
-                          // 2. If Skipped -> Show Recall (Restore)
-                          if (appointment.status == AppointmentStatus.skipped)
-                            _buildActionButton(
-                              icon: Icons.restore_rounded,
-                              color: Colors.blueAccent,
-                              onTap: onStatusNext,
-                            ),
-
-                          // 3. If Not Skipped -> Show Next/Check
-                          if (appointment.status != AppointmentStatus.skipped) ...[
                             const SizedBox(width: 8),
+                          ],
+
+                          // 3. MAIN ACTION (Next / Recall / Finish)
+                          if (onStatusNext != null)
                             _buildActionButton(
-                              icon: isActive ? Icons.check_circle_rounded : Icons.play_arrow_rounded,
-                              color: accentColor,
+                              // Icon changes based on state
+                              icon: isSkipped
+                                  ? Icons.restore_rounded     // Recall
+                                  : (isActive
+                                  ? Icons.check_rounded   // Finish
+                                  : Icons.play_arrow_rounded), // Start
+
+                              // Color changes based on state
+                              color: isSkipped
+                                  ? Colors.blueAccent
+                                  : (isActive ? AppColors.success : AppColors.primary),
+
                               isLarge: true,
                               onTap: onStatusNext,
+                              tooltip: isActive ? "Finish" : "Call Next",
                             ),
-                          ]
                         ],
                       ),
                     ),
@@ -202,12 +223,35 @@ class AppointmentCard extends StatelessWidget {
     );
   }
 
+  // --- Helpers ---
+
+  Widget _buildStatusText(bool isSkipped, bool isActive, bool isCancelled, bool isDone, Color color) {
+    String text = "WAITING";
+    if (isSkipped) text = "SKIPPED";
+    else if (isActive) text = "NOW SERVING";
+    else if (isCancelled) text = "CANCELLED";
+    else if (isDone) text = "COMPLETED";
+
+    return Text(
+      text,
+      style: TextStyle(
+          color: color,
+          fontWeight: FontWeight.w800,
+          fontSize: 13
+      ),
+    );
+  }
+
   Color _getAccentColor(AppointmentStatus status) {
     switch (status) {
       case AppointmentStatus.skipped:
-        return Colors.amber; // Or define a warning color in AppColors
+        return Colors.amber;
       case AppointmentStatus.active:
         return AppColors.success;
+      case AppointmentStatus.cancelled:
+        return AppColors.error;
+      case AppointmentStatus.completed:
+        return Colors.white24; // Muted color for history
       default:
         return AppColors.primary;
     }
@@ -218,17 +262,26 @@ class AppointmentCard extends StatelessWidget {
     required Color color,
     required VoidCallback? onTap,
     bool isLarge = false,
+    String? tooltip,
   }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: EdgeInsets.all(isLarge ? 12 : 8),
-        decoration: BoxDecoration(
-          color: color.withOpacity(0.15),
-          shape: BoxShape.circle,
-          border: Border.all(color: color.withOpacity(0.3)),
+    return Tooltip(
+      message: tooltip ?? "",
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          width: isLarge ? 48 : 36,
+          height: isLarge ? 48 : 36,
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.15),
+            shape: BoxShape.circle,
+            border: Border.all(color: color.withOpacity(0.3)),
+          ),
+          child: Icon(
+              icon,
+              color: color,
+              size: isLarge ? 24 : 18
+          ),
         ),
-        child: Icon(icon, color: color, size: isLarge ? 28 : 20),
       ),
     );
   }

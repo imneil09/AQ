@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'controllers/queueController.dart';
-import 'views/authView.dart';
+import 'views/auth.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();

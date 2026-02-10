@@ -4,9 +4,9 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 
 // Imports for DRY widgets
-import '../widgets/app_colors.dart';
-import '../widgets/background_blur.dart';
-import '../widgets/glass_card.dart';
+import '../widgets/appColors.dart';
+import '../widgets/backgroundBlur.dart';
+import '../widgets/glassCard.dart';
 
 import '../../controllers/queueController.dart';
 import '../../models/clinicModel.dart';
@@ -34,6 +34,7 @@ class _UnifiedBookingViewState extends State<UnifiedBookingView> {
     super.initState();
     final queue = Provider.of<QueueController>(context, listen: false);
 
+    // If Assistant, auto-select the clinic they are managing
     if (widget.isAssistant) {
       _selectedClinic = queue.selectedClinic;
     }
@@ -47,10 +48,14 @@ class _UnifiedBookingViewState extends State<UnifiedBookingView> {
   }
 
   Future<void> _pickDate() async {
+    // Assistants book for Today (Walk-in), Patients book for Tomorrow onwards
+    final DateTime initialDate = widget.isAssistant ? DateTime.now() : _selectedDate;
+    final DateTime firstDate = widget.isAssistant ? DateTime.now() : DateTime.now().add(const Duration(days: 1));
+
     final DateTime? picked = await showDatePicker(
       context: context,
-      initialDate: _selectedDate,
-      firstDate: widget.isAssistant ? DateTime.now() : DateTime.now().add(const Duration(days: 1)),
+      initialDate: initialDate,
+      firstDate: firstDate,
       lastDate: DateTime.now().add(const Duration(days: 30)),
       selectableDayPredicate: _selectedClinic == null
           ? null
@@ -58,7 +63,7 @@ class _UnifiedBookingViewState extends State<UnifiedBookingView> {
       builder: (context, child) => Theme(
         data: ThemeData.dark().copyWith(
           colorScheme: const ColorScheme.dark(
-            primary: AppColors.primary, // DRY: Use AppColors
+            primary: AppColors.primary,
             surface: AppColors.surface,
             onSurface: Colors.white,
           ),
@@ -74,15 +79,41 @@ class _UnifiedBookingViewState extends State<UnifiedBookingView> {
     if (!_formKey.currentState!.validate() || _selectedClinic == null) return;
 
     setState(() => _isLoading = true);
+    final queue = Provider.of<QueueController>(context, listen: false);
+
     try {
-      await Provider.of<QueueController>(context, listen: false).bookAppointment(
-        name: _nameController.text,
-        phone: _phoneController.text,
-        service: _selectedService,
-        date: _selectedDate,
-        clinicId: _selectedClinic!.id,
-      );
-      if (mounted) Navigator.pop(context);
+      if (widget.isAssistant) {
+        // --- BACKEND: WALK-IN LOGIC ---
+        // 1. Checks if user exists by Phone.
+        // 2. If no, creates 'Shadow Account'.
+        // 3. Books appointment for 'Now'.
+        await queue.assistantAddWalkIn(
+          _nameController.text.trim(),
+          _phoneController.text.trim(),
+          _selectedService,
+        );
+      } else {
+        // --- BACKEND: PATIENT LOGIC ---
+        // 1. Uses current Auth UID.
+        // 2. Books for selected future date.
+        await queue.bookAppointment(
+          name: _nameController.text.trim(),
+          phone: _phoneController.text.trim(),
+          service: _selectedService,
+          date: _selectedDate,
+          clinicId: _selectedClinic!.id,
+        );
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+                content: Text(widget.isAssistant ? "Walk-in Added Successfully" : "Appointment Requested!"),
+                backgroundColor: AppColors.success
+            )
+        );
+        Navigator.pop(context);
+      }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(e.toString()), backgroundColor: AppColors.error)
@@ -109,10 +140,10 @@ class _UnifiedBookingViewState extends State<UnifiedBookingView> {
       ),
       body: Stack(
         children: [
-          // 1. REFACTOR: Use AppColors
+          // 1. Background
           Container(color: AppColors.background),
 
-          // 2. REFACTOR: Use BackgroundBlur widget
+          // 2. Blur Effects
           BackgroundBlur(
             color: AppColors.primary.withOpacity(0.12),
             size: 320,
@@ -132,12 +163,13 @@ class _UnifiedBookingViewState extends State<UnifiedBookingView> {
                 padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
                 child: Form(
                   key: _formKey,
-                  // 3. REFACTOR: Use GlassCard widget
+                  // 3. Main Form Card
                   child: GlassCard(
                     padding: const EdgeInsets.all(32),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        // Clinic Dropdown (Only for Patients)
                         if (!widget.isAssistant) ...[
                           _buildSectionHeader("CLINIC SELECTION"),
                           _buildClinicDropdown(queue),
@@ -161,8 +193,14 @@ class _UnifiedBookingViewState extends State<UnifiedBookingView> {
 
                         _buildSectionHeader("VISIT INFORMATION"),
                         _buildServiceDropdown(),
-                        const SizedBox(height: 16),
-                        _buildDatePickerTile(),
+
+                        // Date Picker (Only for Patients)
+                        // Assistants usually book for "Now", but if your logic allows future walk-ins, keep this.
+                        // Based on controller, Assistant addWalkIn usually forces "Now".
+                        if (!widget.isAssistant) ...[
+                          const SizedBox(height: 16),
+                          _buildDatePickerTile(),
+                        ],
 
                         const SizedBox(height: 40),
                         _buildSubmitButton(),
@@ -189,7 +227,11 @@ class _UnifiedBookingViewState extends State<UnifiedBookingView> {
         prefixText: isPhone ? "+91 " : null,
         prefixStyle: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold),
       ),
-      validator: (v) => v!.isEmpty ? "This field is required" : null,
+      validator: (v) {
+        if (v == null || v.isEmpty) return "This field is required";
+        if (isPhone && v.length != 10) return "Enter valid 10-digit number";
+        return null;
+      },
     );
   }
 
@@ -280,9 +322,9 @@ class _UnifiedBookingViewState extends State<UnifiedBookingView> {
         ),
         child: _isLoading
             ? const SizedBox(height: 24, width: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3))
-            : const Text(
-            "CONFIRM APPOINTMENT",
-            style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1.2, fontSize: 14)
+            : Text(
+            widget.isAssistant ? "ADD WALK-IN" : "CONFIRM APPOINTMENT",
+            style: const TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1.2, fontSize: 14)
         ),
       ),
     );

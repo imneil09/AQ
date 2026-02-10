@@ -4,17 +4,17 @@ import 'package:provider/provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 // DRY Widgets & Constants
-import '../../widgets/app_colors.dart';
-import '../../widgets/background_blur.dart';
-import '../../widgets/glass_card.dart';
+import '../../widgets/appColors.dart';
+import '../../widgets/backgroundBlur.dart';
+import '../../widgets/glassCard.dart';
 
 import '../../controllers/queueController.dart';
 import '../../models/appoinmentModel.dart';
 import '../../widgets/appointment.dart';
-import '../historyView.dart';
-import '../unifiedBookingView.dart';
-import 'createClinicView.dart';
-import '../authView.dart';
+import '../history.dart';
+import '../unifiedBooking.dart';
+import 'createClinic.dart';
+import '../auth.dart';
 
 class AssistantHomeView extends StatefulWidget {
   const AssistantHomeView({super.key});
@@ -34,6 +34,51 @@ class _AssistantHomeViewState extends State<AssistantHomeView>
   }
 
   @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  // --- ACTIONS ---
+
+  void _handleLogout(BuildContext context, QueueController queue) async {
+    await queue.logout();
+    if (context.mounted) {
+      Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const AuthView()),
+              (route) => false);
+    }
+  }
+
+  void _handleEmergencyClose(BuildContext context, QueueController queue) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        title: const Text("Emergency Close?", style: TextStyle(color: Colors.white)),
+        content: const Text(
+          "This will CANCEL all waiting appointments for today. This action cannot be undone.",
+          style: TextStyle(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text("CANCEL", style: TextStyle(color: Colors.white54)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text("CLOSE CLINIC", style: TextStyle(color: AppColors.error, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      await queue.emergencyCloseToday();
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final queue = Provider.of<QueueController>(context);
 
@@ -42,10 +87,10 @@ class _AssistantHomeViewState extends State<AssistantHomeView>
       appBar: _buildAppBar(queue),
       body: Stack(
         children: [
-          // 1. REFACTOR: Use AppColors
+          // 1. Background
           Container(color: AppColors.background),
 
-          // 2. REFACTOR: Use BackgroundBlur widget
+          // 2. Ambient Blurs
           BackgroundBlur(
             color: AppColors.primary.withOpacity(0.2),
             size: 300,
@@ -59,6 +104,7 @@ class _AssistantHomeViewState extends State<AssistantHomeView>
             left: -80,
           ),
 
+          // 3. Main Content
           SafeArea(
             child: queue.clinics.isEmpty
                 ? _buildEmptyState()
@@ -71,9 +117,9 @@ class _AssistantHomeViewState extends State<AssistantHomeView>
                   child: TabBarView(
                     controller: _tabController,
                     children: [
-                      _buildList(queue, queue.waitingList),
-                      _buildList(queue, queue.activeQueue),
-                      _buildList(queue, queue.skippedList),
+                      _buildList(queue, queue.waitingList), // Tab 1
+                      _buildList(queue, queue.activeQueue), // Tab 2
+                      _buildList(queue, queue.skippedList), // Tab 3
                     ],
                   ),
                 ),
@@ -92,8 +138,7 @@ class _AssistantHomeViewState extends State<AssistantHomeView>
         ),
         label: const Text(
           "WALK-IN",
-          style:
-          TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1.2),
+          style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1.2),
         ),
         icon: const Icon(Icons.add_rounded),
         backgroundColor: AppColors.primary,
@@ -107,8 +152,7 @@ class _AssistantHomeViewState extends State<AssistantHomeView>
       backgroundColor: Colors.transparent,
       elevation: 0,
       title: queue.clinics.isEmpty
-          ? const Text("Dashboard",
-          style: TextStyle(fontWeight: FontWeight.w900))
+          ? const Text("Dashboard", style: TextStyle(fontWeight: FontWeight.w900))
           : Row(
         children: [
           Expanded(
@@ -134,10 +178,9 @@ class _AssistantHomeViewState extends State<AssistantHomeView>
               ),
             ),
           ),
-          // EDIT CLINIC BUTTON
+          // Edit Clinic
           IconButton(
-            icon: const Icon(Icons.edit_note_rounded,
-                color: Colors.white70),
+            icon: const Icon(Icons.edit_note_rounded, color: Colors.white70),
             onPressed: () {
               if (queue.selectedClinic != null) {
                 Navigator.push(
@@ -153,6 +196,7 @@ class _AssistantHomeViewState extends State<AssistantHomeView>
         ],
       ),
       actions: [
+        // Create New Clinic
         IconButton(
           icon: const Icon(Icons.add_business_rounded, color: Colors.white70),
           onPressed: () => Navigator.push(
@@ -160,24 +204,21 @@ class _AssistantHomeViewState extends State<AssistantHomeView>
             MaterialPageRoute(builder: (_) => const CreateClinicView()),
           ),
         ),
+        // History
         IconButton(
-          icon: const Icon(Icons.receipt_long_rounded,
-              color: AppColors.primary),
+          icon: const Icon(Icons.receipt_long_rounded, color: AppColors.primary),
           onPressed: () => Navigator.push(
             context,
             MaterialPageRoute(builder: (_) => const HistoryView(isAdmin: true)),
           ),
         ),
+        // Menu (Close/Logout)
         PopupMenuButton<String>(
           icon: const Icon(Icons.more_vert_rounded, color: Colors.white70),
           color: AppColors.surface,
           onSelected: (value) {
-            if (value == 'close') queue.emergencyClose();
-            if (value == 'logout') {
-              FirebaseAuth.instance.signOut();
-              Navigator.pushReplacement(
-                  context, MaterialPageRoute(builder: (_) => const AuthView()));
-            }
+            if (value == 'close') _handleEmergencyClose(context, queue);
+            if (value == 'logout') _handleLogout(context, queue);
           },
           itemBuilder: (context) => [
             const PopupMenuItem(
@@ -187,8 +228,7 @@ class _AssistantHomeViewState extends State<AssistantHomeView>
                   Icon(Icons.warning_amber_rounded,
                       color: AppColors.error, size: 20),
                   SizedBox(width: 12),
-                  Text("Emergency Close",
-                      style: TextStyle(color: Colors.white)),
+                  Text("Emergency Close", style: TextStyle(color: Colors.white)),
                 ],
               ),
             ),
@@ -210,6 +250,7 @@ class _AssistantHomeViewState extends State<AssistantHomeView>
   }
 
   Widget _buildMetricsHeader(QueueController queue) {
+    // Metrics based on today's queue history
     final completedCount = queue.history
         .where((e) => e.status == AppointmentStatus.completed)
         .length;
@@ -241,7 +282,6 @@ class _AssistantHomeViewState extends State<AssistantHomeView>
 
   Widget _buildMetricCard(String label, String value, IconData icon,
       {required Color accentColor}) {
-    // 3. REFACTOR: Use GlassCard instead of ClipRRect->BackdropFilter->Container
     return Expanded(
       child: GlassCard(
         radius: 24,
@@ -269,7 +309,6 @@ class _AssistantHomeViewState extends State<AssistantHomeView>
   }
 
   Widget _buildSearchBar(QueueController queue) {
-    // 4. REFACTOR: Use AppColors for consistent styling
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 2),
@@ -280,8 +319,7 @@ class _AssistantHomeViewState extends State<AssistantHomeView>
       ),
       child: TextField(
         onChanged: (val) => queue.updateLiveSearch(val),
-        style:
-        const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         decoration: const InputDecoration(
           border: InputBorder.none,
           hintText: "Search waiting patients...",
@@ -309,8 +347,7 @@ class _AssistantHomeViewState extends State<AssistantHomeView>
         ),
         labelColor: Colors.white,
         unselectedLabelColor: Colors.white38,
-        labelStyle:
-        const TextStyle(fontWeight: FontWeight.w900, fontSize: 11),
+        labelStyle: const TextStyle(fontWeight: FontWeight.w900, fontSize: 11),
         dividerColor: Colors.transparent,
         tabs: [
           Tab(text: "WAITING (${queue.waitingList.length})"),
@@ -327,8 +364,7 @@ class _AssistantHomeViewState extends State<AssistantHomeView>
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.inbox_rounded,
-                size: 64, color: AppColors.glassWhite),
+            Icon(Icons.inbox_rounded, size: 64, color: AppColors.glassWhite),
             const SizedBox(height: 16),
             const Text("No patients here",
                 style: TextStyle(
@@ -345,19 +381,22 @@ class _AssistantHomeViewState extends State<AssistantHomeView>
         return AppointmentCard(
           appointment: appt,
           isAdmin: true,
+          // --- BACKEND WIRING START ---
           onStatusNext: () {
             if (appt.status == AppointmentStatus.skipped) {
+              // Skipped -> Waiting (Recall)
               queue.recallPatient(appt.id);
             } else if (appt.status == AppointmentStatus.waiting) {
+              // Waiting -> Active (Call Next)
               queue.updateStatus(appt.id, AppointmentStatus.active);
             } else if (appt.status == AppointmentStatus.active) {
+              // Active -> Completed (Finish)
               queue.updateStatus(appt.id, AppointmentStatus.completed);
             }
           },
-          onSkip: () =>
-              queue.updateStatus(appt.id, AppointmentStatus.skipped),
-          onCancel: () =>
-              queue.updateStatus(appt.id, AppointmentStatus.cancelled),
+          onSkip: () => queue.updateStatus(appt.id, AppointmentStatus.skipped),
+          onCancel: () => queue.updateStatus(appt.id, AppointmentStatus.cancelled),
+          // --- BACKEND WIRING END ---
         );
       },
     );
@@ -368,12 +407,10 @@ class _AssistantHomeViewState extends State<AssistantHomeView>
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.add_business_rounded,
-              size: 80, color: AppColors.glassWhite),
+          Icon(Icons.add_business_rounded, size: 80, color: AppColors.glassWhite),
           const SizedBox(height: 16),
           const Text("No clinics found. Create one to begin.",
-              style: TextStyle(
-                  color: Colors.white38, fontWeight: FontWeight.w600)),
+              style: TextStyle(color: Colors.white38, fontWeight: FontWeight.w600)),
         ],
       ),
     );

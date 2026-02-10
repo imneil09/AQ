@@ -1,8 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+
+import '../../controllers/queueController.dart';
 import '../../models/appoinmentModel.dart';
-import '../../widgets/app_colors.dart'; // DRY: Import centralized colors
-import 'prescription_pdf.dart';
+import '../../models/prescriptionModel.dart';
+import '../../widgets/appColors.dart';
+import 'prescriptionPdf.dart';
 
 class PrescriptionView extends StatefulWidget {
   final Appointment patient;
@@ -18,6 +23,7 @@ class _PrescriptionViewState extends State<PrescriptionView> with SingleTickerPr
   late TabController _tabController;
 
   // -- Controllers --
+  final _diagnosisCtrl = TextEditingController();
   final _prevReportCtrl = TextEditingController();
   final _newInvestCtrl = TextEditingController();
   final _dietCtrl = TextEditingController();
@@ -25,6 +31,7 @@ class _PrescriptionViewState extends State<PrescriptionView> with SingleTickerPr
   final _medQtyCtrl = TextEditingController();
 
   DateTime? _nextVisitDate;
+  bool _isSubmitting = false;
 
   // -- Medicine State --
   final List<Map<String, String>> _medicines = [];
@@ -38,18 +45,73 @@ class _PrescriptionViewState extends State<PrescriptionView> with SingleTickerPr
   }
 
   @override
+  void dispose() {
+    _diagnosisCtrl.dispose();
+    _prevReportCtrl.dispose();
+    _newInvestCtrl.dispose();
+    _dietCtrl.dispose();
+    _medNameCtrl.dispose();
+    _medQtyCtrl.dispose();
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  // --- BACKEND ACTION: SUBMIT ---
+  Future<void> _submitConsultation() async {
+    if (_diagnosisCtrl.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Please enter a Diagnosis"), backgroundColor: AppColors.error)
+      );
+      return;
+    }
+
+    setState(() => _isSubmitting = true);
+
+    try {
+      // 1. Format Medicines for Backend (List<String>)
+      List<String> formattedMedicines = _medicines.map((m) {
+        return "${m['name']} | ${m['timing']} | ${m['instruction']} | Qty: ${m['qty']}";
+      }).toList();
+
+      // 2. Combine Notes
+      String fullNotes = """
+Previous Reports: ${_prevReportCtrl.text}
+New Investigations: ${_newInvestCtrl.text}
+Diet/Instructions: ${_dietCtrl.text}
+Next Visit: ${_nextVisitDate != null ? DateFormat('dd MMM yyyy').format(_nextVisitDate!) : 'Not Scheduled'}
+      """.trim();
+
+      // 3. Call Controller
+      final queue = Provider.of<QueueController>(context, listen: false);
+      await queue.completeAppointment(
+        appointmentId: widget.patient.id,
+        patientId: widget.patient.userId ?? widget.patient.phoneNumber, // Fallback to phone if ID missing
+        medicines: formattedMedicines,
+        notes: fullNotes,
+        diagnosis: _diagnosisCtrl.text,
+      );
+
+      // 4. Trigger Parent Callback (Update Status in Dashboard)
+      widget.onFinish();
+
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Error: $e"), backgroundColor: AppColors.error)
+      );
+      setState(() => _isSubmitting = false);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Column(
       children: [
-        // --- 1. Patient Header ---
         _buildPatientHeader(),
-
-        // --- 2. Tabs ---
         Container(
-          color: AppColors.surface, // DRY: Use AppColors.surface
+          color: AppColors.surface,
           child: TabBar(
             controller: _tabController,
-            indicatorColor: AppColors.primary, // DRY: Use AppColors.primary
+            indicatorColor: AppColors.primary,
             labelColor: Colors.white,
             unselectedLabelColor: Colors.white54,
             dividerColor: AppColors.glassBorder,
@@ -59,8 +121,6 @@ class _PrescriptionViewState extends State<PrescriptionView> with SingleTickerPr
             ],
           ),
         ),
-
-        // --- 3. Body ---
         Expanded(
           child: TabBarView(
             controller: _tabController,
@@ -131,7 +191,18 @@ class _PrescriptionViewState extends State<PrescriptionView> with SingleTickerPr
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Row 1: Previous Reports
+          // Diagnosis Field
+          _buildSectionLabel("CLINICAL DIAGNOSIS"),
+          TextField(
+            controller: _diagnosisCtrl,
+            style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+            decoration: _inputDeco("Ex: Acute Bronchitis").copyWith(
+              fillColor: AppColors.primary.withOpacity(0.1),
+              prefixIcon: const Icon(Icons.local_hospital_rounded, color: AppColors.primary),
+            ),
+          ),
+          const SizedBox(height: 32),
+
           _buildSectionLabel("PREVIOUS INVESTIGATION REPORT SUMMARY"),
           TextField(
             controller: _prevReportCtrl,
@@ -141,7 +212,6 @@ class _PrescriptionViewState extends State<PrescriptionView> with SingleTickerPr
           ),
           const SizedBox(height: 32),
 
-          // Row 2: Medicines
           _buildSectionLabel("MEDICINES"),
           _buildMedicineAdder(),
           if (_medicines.isNotEmpty) ...[
@@ -150,7 +220,6 @@ class _PrescriptionViewState extends State<PrescriptionView> with SingleTickerPr
           ],
           const SizedBox(height: 32),
 
-          // Row 3: New Investigations & Diet (Side by Side)
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -187,7 +256,6 @@ class _PrescriptionViewState extends State<PrescriptionView> with SingleTickerPr
           ),
           const SizedBox(height: 32),
 
-          // Row 4: Next Visit & Actions
           _buildActionFooter(),
         ],
       ),
@@ -197,7 +265,6 @@ class _PrescriptionViewState extends State<PrescriptionView> with SingleTickerPr
   Widget _buildActionFooter() {
     return Row(
       children: [
-        // Next Visit Picker
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -243,7 +310,7 @@ class _PrescriptionViewState extends State<PrescriptionView> with SingleTickerPr
         ),
         const Spacer(),
 
-        // Action Buttons
+        // PRINT BUTTON - WIRED TO DIAGNOSIS
         OutlinedButton.icon(
           icon: const Icon(Icons.print_rounded),
           label: const Text("PRINT PRESCRIPTION"),
@@ -256,6 +323,7 @@ class _PrescriptionViewState extends State<PrescriptionView> with SingleTickerPr
           onPressed: () {
             PrescriptionPDF.generateAndPrint(
                 patientName: widget.patient.customerName,
+                diagnosis: _diagnosisCtrl.text, // <--- WIRED HERE
                 prevReports: _prevReportCtrl.text,
                 medicines: _medicines,
                 newInvestigations: _newInvestCtrl.text,
@@ -265,9 +333,13 @@ class _PrescriptionViewState extends State<PrescriptionView> with SingleTickerPr
           },
         ),
         const SizedBox(width: 16),
+
+        // FINISH BUTTON
         ElevatedButton.icon(
-          icon: const Icon(Icons.check_circle_rounded),
-          label: const Text("FINISH CONSULTATION"),
+          icon: _isSubmitting
+              ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+              : const Icon(Icons.check_circle_rounded),
+          label: Text(_isSubmitting ? "SAVING..." : "FINISH CONSULTATION"),
           style: ElevatedButton.styleFrom(
             backgroundColor: AppColors.success,
             foregroundColor: Colors.white,
@@ -275,29 +347,106 @@ class _PrescriptionViewState extends State<PrescriptionView> with SingleTickerPr
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             elevation: 0,
           ),
-          onPressed: widget.onFinish,
+          onPressed: _isSubmitting ? null : _submitConsultation,
         ),
       ],
     );
   }
 
-  // --- TAB 2: HISTORY VIEW ---
+  // --- TAB 2: HISTORY VIEW (WIRED) ---
   Widget _buildHistoryView() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.history_edu_rounded, size: 64, color: Colors.white.withOpacity(0.05)),
-          const SizedBox(height: 16),
-          const Text("No previous records found for this patient.", style: TextStyle(color: Colors.white24, fontWeight: FontWeight.bold)),
-        ],
-      ),
+    // Queries prescriptions where the patientId matches the current patient
+    final queryId = widget.patient.userId ?? widget.patient.phoneNumber;
+
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('prescriptions')
+          .where('patientId', isEqualTo: queryId)
+          .orderBy('timestamp', descending: true)
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.history_edu_rounded, size: 64, color: Colors.white.withOpacity(0.05)),
+                const SizedBox(height: 16),
+                const Text("No previous records found for this patient.", style: TextStyle(color: Colors.white24, fontWeight: FontWeight.bold)),
+              ],
+            ),
+          );
+        }
+
+        final docs = snapshot.data!.docs;
+
+        return ListView.builder(
+          padding: const EdgeInsets.all(20),
+          itemCount: docs.length,
+          itemBuilder: (context, index) {
+            final data = docs[index].data() as Map<String, dynamic>;
+            final p = Prescription.fromMap(data, docs[index].id);
+
+            return Container(
+              margin: const EdgeInsets.only(bottom: 16),
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: AppColors.glassWhite,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: AppColors.glassBorder),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        DateFormat('dd MMM yyyy • hh:mm a').format(p.timestamp),
+                        style: const TextStyle(color: Colors.white54, fontSize: 12, fontWeight: FontWeight.bold),
+                      ),
+                      const Icon(Icons.arrow_forward_ios_rounded, color: Colors.white24, size: 14),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    p.diagnosis.isNotEmpty ? p.diagnosis : "Routine Checkup",
+                    style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: p.medicines.take(3).map((m) {
+                      // Parse string back for basic display
+                      final name = m.split('|').first.trim();
+                      return Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(color: AppColors.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(6)),
+                        child: Text(name, style: const TextStyle(color: AppColors.primary, fontSize: 11)),
+                      );
+                    }).toList(),
+                  ),
+                  if (p.medicines.length > 3)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Text("+ ${p.medicines.length - 3} more medicines", style: const TextStyle(color: Colors.white38, fontSize: 10)),
+                    ),
+                ],
+              ),
+            );
+          },
+        );
+      },
     );
   }
 
   // --- UI Helpers ---
 
-  // DRY: Reusable Input Decoration for consistency across the form
   InputDecoration _inputDeco(String hint) {
     return InputDecoration(
       filled: true,

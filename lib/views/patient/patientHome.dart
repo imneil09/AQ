@@ -5,15 +5,16 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 
 // Imports for DRY widgets
-import '../../widgets/app_colors.dart';
-import '../../widgets/background_blur.dart';
-import '../../widgets/glass_card.dart';
+import '../../widgets/appColors.dart';
+import '../../widgets/backgroundBlur.dart';
+import '../../widgets/glassCard.dart';
 
 import '../../controllers/queueController.dart';
 import '../../models/appoinmentModel.dart';
-import '../historyView.dart';
-import '../authView.dart';
-import '../unifiedBookingView.dart';
+import '../../models/clinicModel.dart'; // Added to resolve clinic name
+import '../history.dart';
+import '../auth.dart';
+import '../unifiedBooking.dart';
 
 class PatientHomeView extends StatefulWidget {
   const PatientHomeView({super.key});
@@ -44,7 +45,8 @@ class _PatientHomeViewState extends State<PatientHomeView> with SingleTickerProv
   }
 
   Future<void> _logout() async {
-    await FirebaseAuth.instance.signOut();
+    final queue = Provider.of<QueueController>(context, listen: false);
+    await queue.logout(); // Use controller's logout for consistency
     if (mounted) Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (_) => const AuthView()), (r) => false);
   }
 
@@ -57,9 +59,12 @@ class _PatientHomeViewState extends State<PatientHomeView> with SingleTickerProv
         stream: queue.patientHistory,
         builder: (context, snapshot) {
           final appointments = snapshot.data ?? [];
+
           // Filter to show only active/waiting/skipped (current and future)
+          // We exclude 'completed' and 'cancelled' as they belong in HistoryView
           final activeAppointments = appointments.where((a) =>
-          a.status != AppointmentStatus.completed && a.status != AppointmentStatus.cancelled
+          a.status != AppointmentStatus.completed &&
+              a.status != AppointmentStatus.cancelled
           ).toList();
 
           return Scaffold(
@@ -133,14 +138,21 @@ class _PatientHomeViewState extends State<PatientHomeView> with SingleTickerProv
       itemBuilder: (context, index) {
         final appt = list[index];
         bool isExpanded = _expandedIndex == index;
-        bool isLive = index == 0 && appt.appointmentDate.day == DateTime.now().day;
+
+        // Determine if this ticket is "Live" (Happening today)
+        final now = DateTime.now();
+        bool isLive = appt.appointmentDate.year == now.year &&
+            appt.appointmentDate.month == now.month &&
+            appt.appointmentDate.day == now.day;
 
         return AnimatedSize(
           duration: const Duration(milliseconds: 300),
           curve: Curves.easeInOut,
           child: GestureDetector(
             onTap: () => setState(() => _expandedIndex = isExpanded ? null : index),
-            child: isExpanded ? _buildExpandedTicket(appt, queue, isLive) : _buildCollapsedCard(appt, isLive),
+            child: isExpanded
+                ? _buildExpandedTicket(appt, queue, isLive)
+                : _buildCollapsedCard(appt, isLive),
           ),
         );
       },
@@ -186,7 +198,23 @@ class _PatientHomeViewState extends State<PatientHomeView> with SingleTickerProv
   Widget _buildExpandedTicket(Appointment appt, QueueController queue, bool isLive) {
     Color themeColor = isLive ? AppColors.primary : AppColors.success;
 
-    // Kept standard Container to maintain specific border/header design, but updated Colors
+    // Helper to find Clinic Name from ID
+    String clinicName = "Main Hub";
+    try {
+      final clinic = queue.clinics.firstWhere((c) => c.id == appt.clinicId);
+      clinicName = clinic.name;
+    } catch (e) {
+      // Clinic might not be loaded or deleted
+    }
+
+    // Determine estimated wait time string
+    String waitTimeStr = "Calculating...";
+    if (appt.estimatedTime != null) {
+      waitTimeStr = DateFormat('hh:mm a').format(appt.estimatedTime!);
+    } else if (!isLive) {
+      waitTimeStr = "Scheduled";
+    }
+
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
@@ -227,12 +255,12 @@ class _PatientHomeViewState extends State<PatientHomeView> with SingleTickerProv
                 const SizedBox(height: 24),
                 _infoLine("Patient", appt.customerName),
                 const Divider(height: 20, color: Colors.white10),
-                _infoLine("Clinic", queue.selectedClinic?.name ?? "Main Hub"),
+                _infoLine("Clinic", clinicName),
                 const Divider(height: 20, color: Colors.white10),
                 _infoLine("Status", appt.status.name.toUpperCase()),
                 if (isLive) ...[
                   const Divider(height: 20, color: Colors.white10),
-                  _infoLine("Est. Wait", appt.estimatedTime != null ? DateFormat('hh:mm a').format(appt.estimatedTime!) : "Calculating..."),
+                  _infoLine("Est. Time", waitTimeStr),
                 ],
               ],
             ),
