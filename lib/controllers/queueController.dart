@@ -69,9 +69,10 @@ class QueueController extends ChangeNotifier {
   // --- Clinic Management ---
   void _fetchClinics() {
     _clinicSub = _db.collection('clinics').snapshots().listen((snapshot) {
-      clinics = snapshot.docs
-          .map((doc) => Clinic.fromMap(doc.data(), doc.id))
-          .toList();
+      clinics =
+          snapshot.docs
+              .map((doc) => Clinic.fromMap(doc.data(), doc.id))
+              .toList();
 
       // Auto-select first clinic if none selected (useful for single-doctor apps)
       if (selectedClinic == null && clinics.isNotEmpty) {
@@ -103,15 +104,15 @@ class QueueController extends ChangeNotifier {
         .orderBy('tokenNumber')
         .snapshots()
         .listen((snapshot) {
+          var rawList =
+              snapshot.docs
+                  .map((doc) => Appointment.fromMap(doc.data(), doc.id))
+                  .toList();
 
-      var rawList = snapshot.docs
-          .map((doc) => Appointment.fromMap(doc.data(), doc.id))
-          .toList();
-
-      // Apply the Dynamic Time Estimation Algorithm
-      _todayQueue = _calculateEstimatedTimes(rawList);
-      notifyListeners();
-    });
+          // Apply the Dynamic Time Estimation Algorithm
+          _todayQueue = _calculateEstimatedTimes(rawList);
+          notifyListeners();
+        });
   }
 
   // *** CORE ALGORITHM: DYNAMIC TIME ESTIMATION ***
@@ -131,7 +132,13 @@ class QueueController extends ChangeNotifier {
     final now = DateTime.now();
 
     // The scheduled start time for today
-    DateTime clinicStartTime = DateTime(now.year, now.month, now.day, startHour, startMin);
+    DateTime clinicStartTime = DateTime(
+      now.year,
+      now.month,
+      now.day,
+      startHour,
+      startMin,
+    );
 
     // 2. Real-Time Catch Up:
     // If the doctor is late (Now > StartTime), the queue flows from NOW.
@@ -147,7 +154,8 @@ class QueueController extends ChangeNotifier {
     // Logic: If a patient is skipped, we reduce the total wait time (since they are gone),
     // BUT we add a small buffer (2 mins) per skipped patient to prevent erratic jumps
     // and account for the transition/confusion time.
-    int skippedCount = list.where((a) => a.status == AppointmentStatus.skipped).length;
+    int skippedCount =
+        list.where((a) => a.status == AppointmentStatus.skipped).length;
     int bufferMinutes = skippedCount * 2;
     rollingTime = rollingTime.add(Duration(minutes: bufferMinutes));
 
@@ -172,11 +180,15 @@ class QueueController extends ChangeNotifier {
       if (newAppt.status == AppointmentStatus.active) {
         // Active patients are consuming time NOW.
         newAppt.estimatedTime = rollingTime;
-        rollingTime = rollingTime.add(Duration(minutes: schedule.avgConsultationTimeMinutes));
+        rollingTime = rollingTime.add(
+          Duration(minutes: schedule.avgConsultationTimeMinutes),
+        );
       } else if (newAppt.status == AppointmentStatus.waiting) {
         // Waiting patients get the rolling time
         newAppt.estimatedTime = rollingTime;
-        rollingTime = rollingTime.add(Duration(minutes: schedule.avgConsultationTimeMinutes));
+        rollingTime = rollingTime.add(
+          Duration(minutes: schedule.avgConsultationTimeMinutes),
+        );
       } else {
         // Skipped, Completed, Cancelled have no estimated wait time
         newAppt.estimatedTime = null;
@@ -190,16 +202,28 @@ class QueueController extends ChangeNotifier {
 
   List<Appointment> get _searchedQueue {
     if (_liveSearchQuery.isEmpty) return _todayQueue;
-    return _todayQueue.where((a) =>
-    a.customerName.toLowerCase().contains(_liveSearchQuery) ||
-        a.phoneNumber.contains(_liveSearchQuery) ||
-        a.tokenNumber.toString().contains(_liveSearchQuery)
-    ).toList();
+    return _todayQueue
+        .where(
+          (a) =>
+              a.customerName.toLowerCase().contains(_liveSearchQuery) ||
+              a.phoneNumber.contains(_liveSearchQuery) ||
+              a.tokenNumber.toString().contains(_liveSearchQuery),
+        )
+        .toList();
   }
 
-  List<Appointment> get waitingList => _searchedQueue.where((a) => a.status == AppointmentStatus.waiting).toList();
-  List<Appointment> get activeQueue => _searchedQueue.where((a) => a.status == AppointmentStatus.active).toList();
-  List<Appointment> get skippedList => _searchedQueue.where((a) => a.status == AppointmentStatus.skipped).toList();
+  List<Appointment> get waitingList =>
+      _searchedQueue
+          .where((a) => a.status == AppointmentStatus.waiting)
+          .toList();
+  List<Appointment> get activeQueue =>
+      _searchedQueue
+          .where((a) => a.status == AppointmentStatus.active)
+          .toList();
+  List<Appointment> get skippedList =>
+      _searchedQueue
+          .where((a) => a.status == AppointmentStatus.skipped)
+          .toList();
 
   // --- ACTIONS: BOOKING & WALK-INS ---
 
@@ -216,8 +240,12 @@ class QueueController extends ChangeNotifier {
     // --- NEW VALIDATION START ---
     if (selectedClinic != null) {
       // 1. Check for Emergency Closure on this specific date
-      bool isEmergencyClosed = selectedClinic!.emergencyClosedDates.any((d) =>
-      d.year == cleanDate.year && d.month == cleanDate.month && d.day == cleanDate.day);
+      bool isEmergencyClosed = selectedClinic!.emergencyClosedDates.any(
+        (d) =>
+            d.year == cleanDate.year &&
+            d.month == cleanDate.month &&
+            d.day == cleanDate.day,
+      );
 
       if (isEmergencyClosed) {
         throw Exception("Clinic is closed on this date.");
@@ -231,46 +259,64 @@ class QueueController extends ChangeNotifier {
       }
     }
     // --- NEW VALIDATION END ---
-
     try {
-      // Get last token for that day to increment
-      final qSnap = await _db
-          .collection('appointments')
-          .where('clinicId', isEqualTo: clinicId)
-          .where('appointmentDate', isEqualTo: Timestamp.fromDate(cleanDate))
-          .orderBy('tokenNumber', descending: true)
-          .limit(1)
-          .get();
+      // 1. Create a unique ID for the day (e.g., "2026-02-10") to track counters
+      final dateKey = DateFormat('yyyy-MM-dd').format(cleanDate);
 
-      int nextToken = 1;
-      if (qSnap.docs.isNotEmpty) {
-        nextToken = (qSnap.docs.first.data()['tokenNumber'] as int) + 1;
-      }
+      await _db.runTransaction((transaction) async {
+        // 2. Reference the Daily Counter Document
+        // We lock this document to ensure only one person can increment it at a time
+        final counterRef = _db
+            .collection('clinics')
+            .doc(clinicId)
+            .collection('daily_counters')
+            .doc(dateKey);
 
-      // Determine Status: If today -> waiting, If future -> waiting (to simplify lists)
-      // *Spec Note*: Future dates should be 'scheduled' but 'waiting' ensures visibility in simple list views
-      // without extra filtering. Ideally, a Cloud Function flips 'scheduled' to 'waiting' at midnight.
-      final isToday = cleanDate.year == DateTime.now().year &&
-          cleanDate.month == DateTime.now().month &&
-          cleanDate.day == DateTime.now().day;
+        // 3. READ: Get the current counter value
+        final counterSnap = await transaction.get(counterRef);
 
-      final statusToSave = isToday ? AppointmentStatus.waiting : AppointmentStatus.waiting;
+        int nextToken = 1;
+        if (counterSnap.exists) {
+          final data = counterSnap.data();
+          if (data != null && data.containsKey('lastToken')) {
+            nextToken = (data['lastToken'] as int) + 1;
+          }
+        }
 
-      final newAppt = {
-        'clinicId': clinicId,
-        'doctorId': selectedClinic?.doctorId ?? '',
-        'customerName': name,
-        'phoneNumber': phone,
-        'serviceType': service,
-        'type': 'live',
-        'appointmentDate': Timestamp.fromDate(cleanDate),
-        'bookingTimestamp': FieldValue.serverTimestamp(),
-        'tokenNumber': nextToken,
-        'status': statusToSave.name,
-        'userId': patientId ?? _auth.currentUser?.uid ?? '',
-      };
+        // 4. Determine Status
+        final isToday =
+            cleanDate.year == DateTime.now().year &&
+            cleanDate.month == DateTime.now().month &&
+            cleanDate.day == DateTime.now().day;
 
-      await _db.collection('appointments').add(newAppt);
+        final statusToSave =
+            isToday ? AppointmentStatus.waiting : AppointmentStatus.waiting;
+
+        // 5. WRITE: Prepare the new appointment
+        // We create a reference explicitly so we can use transaction.set()
+        final newApptRef = _db.collection('appointments').doc();
+
+        final newApptData = {
+          'clinicId': clinicId,
+          'doctorId': selectedClinic?.doctorId ?? '',
+          'customerName': name,
+          'phoneNumber': phone,
+          'serviceType': service,
+          'type': 'live',
+          'appointmentDate': Timestamp.fromDate(cleanDate),
+          'bookingTimestamp':
+              FieldValue.serverTimestamp(), // Trusted server time
+          'tokenNumber': nextToken,
+          'status': statusToSave.name,
+          'userId': patientId ?? _auth.currentUser?.uid ?? '',
+        };
+
+        // 6. COMMIT: Atomic update of both the Appointment and the Counter
+        transaction.set(newApptRef, newApptData);
+        transaction.set(counterRef, {
+          'lastToken': nextToken,
+        }, SetOptions(merge: true));
+      });
     } catch (e) {
       debugPrint("Error booking appointment: $e");
       rethrow;
@@ -278,13 +324,22 @@ class QueueController extends ChangeNotifier {
   }
 
   // *** SHADOW ACCOUNT LOGIC (Walk-In) ***
-  Future<void> assistantAddWalkIn(String name, String phone, String service) async {
+  Future<void> assistantAddWalkIn(
+    String name,
+    String phone,
+    String service,
+  ) async {
     if (selectedClinic == null) return;
 
     String userId = "";
 
     // 1. Check if user already exists
-    final userSnap = await _db.collection('users').where('phoneNumber', isEqualTo: phone).limit(1).get();
+    final userSnap =
+        await _db
+            .collection('users')
+            .where('phoneNumber', isEqualTo: phone)
+            .limit(1)
+            .get();
 
     if (userSnap.docs.isNotEmpty) {
       // User exists, link to them
@@ -353,7 +408,9 @@ class QueueController extends ChangeNotifier {
     });
 
     // Update Appointment Status to Completed
-    DocumentReference apptRef = _db.collection('appointments').doc(appointmentId);
+    DocumentReference apptRef = _db
+        .collection('appointments')
+        .doc(appointmentId);
     batch.update(apptRef, {'status': AppointmentStatus.completed.name});
 
     await batch.commit();
@@ -367,14 +424,18 @@ class QueueController extends ChangeNotifier {
 
     // Add to closed dates in Clinic
     await _db.collection('clinics').doc(selectedClinic!.id).update({
-      'emergencyClosedDates': FieldValue.arrayUnion([Timestamp.fromDate(cleanDate)])
+      'emergencyClosedDates': FieldValue.arrayUnion([
+        Timestamp.fromDate(cleanDate),
+      ]),
     });
 
     // Cancel all appointments for that day
-    final snap = await _db.collection('appointments')
-        .where('clinicId', isEqualTo: selectedClinic!.id)
-        .where('appointmentDate', isEqualTo: Timestamp.fromDate(cleanDate))
-        .get();
+    final snap =
+        await _db
+            .collection('appointments')
+            .where('clinicId', isEqualTo: selectedClinic!.id)
+            .where('appointmentDate', isEqualTo: Timestamp.fromDate(cleanDate))
+            .get();
 
     WriteBatch batch = _db.batch();
     for (var doc in snap.docs) {
@@ -389,11 +450,12 @@ class QueueController extends ChangeNotifier {
     if (selectedClinic == null) return;
     WriteBatch batch = _db.batch();
 
-    final activeSnap = await _db
-        .collection('appointments')
-        .where('clinicId', isEqualTo: selectedClinic!.id)
-        .where('status', whereIn: ['waiting', 'active', 'skipped'])
-        .get();
+    final activeSnap =
+        await _db
+            .collection('appointments')
+            .where('clinicId', isEqualTo: selectedClinic!.id)
+            .where('status', whereIn: ['waiting', 'active', 'skipped'])
+            .get();
 
     for (var doc in activeSnap.docs) {
       batch.update(doc.reference, {'status': AppointmentStatus.cancelled.name});
@@ -411,17 +473,23 @@ class QueueController extends ChangeNotifier {
     final todayStart = DateTime(now.year, now.month, now.day);
 
     // Clean up PAST days that were left 'waiting' or 'active'
-    final leftovers = await _db
-        .collection('appointments')
-        .where('clinicId', isEqualTo: selectedClinic!.id)
-        .where('appointmentDate', isLessThan: Timestamp.fromDate(todayStart))
-        .where('status', whereIn: ['waiting', 'skipped', 'active'])
-        .get();
+    final leftovers =
+        await _db
+            .collection('appointments')
+            .where('clinicId', isEqualTo: selectedClinic!.id)
+            .where(
+              'appointmentDate',
+              isLessThan: Timestamp.fromDate(todayStart),
+            )
+            .where('status', whereIn: ['waiting', 'skipped', 'active'])
+            .get();
 
     if (leftovers.docs.isNotEmpty) {
       WriteBatch batch = _db.batch();
       for (var doc in leftovers.docs) {
-        batch.update(doc.reference, {'status': AppointmentStatus.cancelled.name});
+        batch.update(doc.reference, {
+          'status': AppointmentStatus.cancelled.name,
+        });
       }
       await batch.commit();
     }
@@ -440,13 +508,21 @@ class QueueController extends ChangeNotifier {
         .orderBy('appointmentDate', descending: true)
         .snapshots()
         .map((snap) {
-      final list = snap.docs.map((d) => Appointment.fromMap(d.data(), d.id)).toList();
-      if (_historySearchQuery.isEmpty) return list;
-      return list.where((a) =>
-      a.customerName.toLowerCase().contains(_historySearchQuery) ||
-          a.serviceType.toLowerCase().contains(_historySearchQuery)
-      ).toList();
-    });
+          final list =
+              snap.docs
+                  .map((d) => Appointment.fromMap(d.data(), d.id))
+                  .toList();
+          if (_historySearchQuery.isEmpty) return list;
+          return list
+              .where(
+                (a) =>
+                    a.customerName.toLowerCase().contains(
+                      _historySearchQuery,
+                    ) ||
+                    a.serviceType.toLowerCase().contains(_historySearchQuery),
+              )
+              .toList();
+        });
   }
 
   Stream<List<Appointment>> get assistantFullHistory {
@@ -458,14 +534,22 @@ class QueueController extends ChangeNotifier {
         .orderBy('appointmentDate', descending: true)
         .snapshots()
         .map((snap) {
-      final list = snap.docs.map((d) => Appointment.fromMap(d.data(), d.id)).toList();
-      if (_historySearchQuery.isEmpty) return list;
-      return list.where((a) =>
-      a.customerName.toLowerCase().contains(_historySearchQuery) ||
-          a.phoneNumber.contains(_historySearchQuery) ||
-          a.tokenNumber.toString().contains(_historySearchQuery)
-      ).toList();
-    });
+          final list =
+              snap.docs
+                  .map((d) => Appointment.fromMap(d.data(), d.id))
+                  .toList();
+          if (_historySearchQuery.isEmpty) return list;
+          return list
+              .where(
+                (a) =>
+                    a.customerName.toLowerCase().contains(
+                      _historySearchQuery,
+                    ) ||
+                    a.phoneNumber.contains(_historySearchQuery) ||
+                    a.tokenNumber.toString().contains(_historySearchQuery),
+              )
+              .toList();
+        });
   }
 
   Appointment? get myAppointment {

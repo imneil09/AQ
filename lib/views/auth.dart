@@ -141,14 +141,13 @@ class _AuthViewState extends State<AuthView> {
 
       if (!doc.exists) {
         // Create new patient document strictly adhering to UserModel
+        // NEW
         await userRef.set({
           'uid': user.uid,
           'phoneNumber': user.phoneNumber,
-          'name': 'Guest Patient', // Default name, can be updated later
-          'role': 'patient',
+          'role': 'patient', // Ensures role is always set/refreshed
           'isShadowAccount': false,
-          'createdAt': FieldValue.serverTimestamp(),
-        });
+        }, SetOptions(merge: true));
       }
       if (mounted) _redirectUser(user);
     }
