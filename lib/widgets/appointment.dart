@@ -2,7 +2,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/appoinmentModel.dart';
-import 'appColors.dart'; // Assumes appColors.dart is in the same directory (lib/widgets/)
+import 'appColors.dart';
 
 class AppointmentCard extends StatelessWidget {
   final Appointment appointment;
@@ -130,25 +130,30 @@ class AppointmentCard extends StatelessWidget {
                           const SizedBox(height: 8),
                           Row(
                             children: [
-                              // Status Badge Logic
-                              _buildStatusText(isSkipped, isActive, isCancelled, isDone, accentColor),
+                              // Status Badge Logic (Wrapped in Flexible)
+                              Flexible(
+                                child: _buildStatusText(isSkipped, isActive, isCancelled, isDone, accentColor),
+                              ),
 
-                              const SizedBox(width: 6),
-
-                              // Time Logic (Hide if Cancelled/Skipped/Completed)
+                              // Time Logic
                               if (!isSkipped && !isCancelled && !isDone) ...[
+                                const SizedBox(width: 6),
                                 Text("•", style: TextStyle(color: Colors.white.withOpacity(0.4))),
                                 const SizedBox(width: 6),
-                                Text(
-                                  isActive
-                                      ? "NOW"
-                                      : (appointment.estimatedTime != null
-                                      ? DateFormat('hh:mm a').format(appointment.estimatedTime!)
-                                      : "--:--"),
-                                  style: TextStyle(
-                                    color: accentColor,
-                                    fontWeight: FontWeight.w800,
-                                    fontSize: 13,
+                                Flexible(
+                                  child: Text(
+                                    isActive
+                                        ? "NOW"
+                                        : (appointment.estimatedTime != null
+                                        ? DateFormat('hh:mm a').format(appointment.estimatedTime!)
+                                        : "--:--"),
+                                    style: TextStyle(
+                                      color: accentColor,
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 13,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
                               ]
@@ -157,63 +162,61 @@ class AppointmentCard extends StatelessWidget {
                           const SizedBox(height: 4),
                           Text(
                             appointment.serviceType,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                             style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 12, fontWeight: FontWeight.w600),
                           ),
+
+                          // --- ADMIN QUICK ACTIONS (MOVED HERE) ---
+                          // Moved below the text to prevent horizontal overflow
+                          if (isAdmin && !isDone && !isCancelled) ...[
+                            const SizedBox(height: 12),
+                            Row(
+                              children: [
+                                // 1. CANCEL BUTTON
+                                if (onCancel != null && (isWaiting || isSkipped)) ...[
+                                  _buildActionButton(
+                                    icon: Icons.close_rounded,
+                                    color: AppColors.error,
+                                    onTap: onCancel,
+                                    tooltip: "Cancel Appointment",
+                                  ),
+                                  const SizedBox(width: 8),
+                                ],
+
+                                // 2. SKIP BUTTON
+                                if (onSkip != null && isWaiting) ...[
+                                  _buildActionButton(
+                                    icon: Icons.u_turn_right_rounded,
+                                    color: Colors.amberAccent,
+                                    onTap: onSkip,
+                                    tooltip: "Skip Patient",
+                                  ),
+                                  const SizedBox(width: 8),
+                                ],
+
+                                // 3. MAIN ACTION
+                                if (onStatusNext != null)
+                                  _buildActionButton(
+                                    icon: isSkipped
+                                        ? Icons.restore_rounded
+                                        : (isActive
+                                        ? Icons.check_rounded
+                                        : Icons.play_arrow_rounded),
+                                    color: isSkipped
+                                        ? Colors.blueAccent
+                                        : (isActive ? AppColors.success : AppColors.primary),
+                                    isLarge: true,
+                                    onTap: onStatusNext,
+                                    tooltip: isActive ? "Finish" : "Call Next",
+                                  ),
+                              ],
+                            ),
+                          ],
                         ],
                       ),
                     ),
                   ),
-
-                  // --- ADMIN QUICK ACTIONS (BACKEND INTEGRATION) ---
-                  if (isAdmin && !isDone && !isCancelled)
-                    Padding(
-                      padding: const EdgeInsets.only(right: 16),
-                      child: Row(
-                        children: [
-                          // 1. CANCEL BUTTON (Visible for Waiting & Skipped)
-                          if (onCancel != null && (isWaiting || isSkipped)) ...[
-                            _buildActionButton(
-                              icon: Icons.close_rounded,
-                              color: AppColors.error,
-                              onTap: onCancel,
-                              tooltip: "Cancel Appointment",
-                            ),
-                            const SizedBox(width: 8),
-                          ],
-
-                          // 2. SKIP BUTTON (Visible Only for Waiting)
-                          if (onSkip != null && isWaiting) ...[
-                            _buildActionButton(
-                              icon: Icons.u_turn_right_rounded,
-                              color: Colors.amberAccent,
-                              onTap: onSkip,
-                              tooltip: "Skip Patient",
-                            ),
-                            const SizedBox(width: 8),
-                          ],
-
-                          // 3. MAIN ACTION (Next / Recall / Finish)
-                          if (onStatusNext != null)
-                            _buildActionButton(
-                              // Icon changes based on state
-                              icon: isSkipped
-                                  ? Icons.restore_rounded     // Recall
-                                  : (isActive
-                                  ? Icons.check_rounded   // Finish
-                                  : Icons.play_arrow_rounded), // Start
-
-                              // Color changes based on state
-                              color: isSkipped
-                                  ? Colors.blueAccent
-                                  : (isActive ? AppColors.success : AppColors.primary),
-
-                              isLarge: true,
-                              onTap: onStatusNext,
-                              tooltip: isActive ? "Finish" : "Call Next",
-                            ),
-                        ],
-                      ),
-                    ),
                 ],
               ),
             ),
@@ -239,6 +242,8 @@ class AppointmentCard extends StatelessWidget {
           fontWeight: FontWeight.w800,
           fontSize: 13
       ),
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
     );
   }
 

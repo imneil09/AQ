@@ -56,37 +56,51 @@ class _AuthViewState extends State<AuthView> {
     if (user.email != null && user.email!.isNotEmpty) {
       // STAFF FLOW
       if (_isDoctorPlatform) {
-        Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const DoctorDashboard()));
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const DoctorDashboard()),
+        );
       } else {
         // Assistants on mobile/tablet
-        Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const AssistantHomeView()));
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const AssistantHomeView()),
+        );
       }
     } else {
       // PATIENT FLOW
       if (_isDoctorPlatform) {
         // Prevent patients from using the Web/Desktop Admin interface
         _auth.signOut();
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Patients must use the Mobile App.")));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Patients must use the Mobile App.")),
+        );
       } else {
-        Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const PatientHomeView()));
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const PatientHomeView()),
+        );
       }
     }
   }
 
   Future<void> _signInWithEmail() async {
-    if (_emailController.text.isEmpty || _passwordController.text.isEmpty) return;
+    if (_emailController.text.isEmpty || _passwordController.text.isEmpty)
+      return;
 
     setState(() => _isLoading = true);
     try {
       final cred = await _auth.signInWithEmailAndPassword(
-          email: _emailController.text.trim(),
-          password: _passwordController.text.trim()
+        email: _emailController.text.trim(),
+        password: _passwordController.text.trim(),
       );
       if (mounted && cred.user != null) {
         _redirectUser(cred.user!);
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Login Failed: ${e.toString()}")));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Login Failed: ${e.toString()}")));
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -94,7 +108,9 @@ class _AuthViewState extends State<AuthView> {
 
   Future<void> _verifyPhone() async {
     if (_phoneController.text.length < 10) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Please enter a valid 10-digit number")));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Please enter a valid 10-digit number")),
+      );
       return;
     }
 
@@ -107,13 +123,16 @@ class _AuthViewState extends State<AuthView> {
       },
       verificationFailed: (e) {
         setState(() => _isLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message ?? "Verification Failed")));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.message ?? "Verification Failed")),
+        );
       },
-      codeSent: (id, _) => setState(() {
-        _verificationId = id;
-        _isOtpSent = true;
-        _isLoading = false;
-      }),
+      codeSent:
+          (id, _) => setState(() {
+            _verificationId = id;
+            _isOtpSent = true;
+            _isLoading = false;
+          }),
       codeAutoRetrievalTimeout: (_) {},
     );
   }
@@ -123,11 +142,18 @@ class _AuthViewState extends State<AuthView> {
 
     setState(() => _isLoading = true);
     try {
-      await _auth.signInWithCredential(PhoneAuthProvider.credential(verificationId: _verificationId!, smsCode: _otpController.text.trim()));
+      await _auth.signInWithCredential(
+        PhoneAuthProvider.credential(
+          verificationId: _verificationId!,
+          smsCode: _otpController.text.trim(),
+        ),
+      );
       _handleCustomerSuccess();
     } catch (e) {
       setState(() => _isLoading = false);
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Invalid OTP")));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("Invalid OTP")));
     }
   }
 
@@ -136,19 +162,29 @@ class _AuthViewState extends State<AuthView> {
   Future<void> _handleCustomerSuccess() async {
     final user = _auth.currentUser;
     if (user != null) {
-      final userRef = FirebaseFirestore.instance.collection('users').doc(user.uid);
-      final doc = await userRef.get();
+      final userRef = FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid);
 
-      if (!doc.exists) {
-        // Create new patient document strictly adhering to UserModel
-        // NEW
+      // 1. ALWAYS ensure these critical fields exist (No 'if' check needed!)
+      // 'merge: true' makes this safe: it won't delete the name if it's already there.
+      await userRef.set({
+        'uid': user.uid,
+        'phoneNumber': user.phoneNumber,
+        'role': 'patient',
+        'isShadowAccount': false,
+      }, SetOptions(merge: true));
+
+      // 2. Only set 'name' and 'createdAt' if they are truly missing
+      // (This preserves the user's name if they have already set one)
+      final doc = await userRef.get();
+      if (!doc.exists || !doc.data()!.containsKey('createdAt')) {
         await userRef.set({
-          'uid': user.uid,
-          'phoneNumber': user.phoneNumber,
-          'role': 'patient', // Ensures role is always set/refreshed
-          'isShadowAccount': false,
+          'name': 'Guest Patient',
+          'createdAt': FieldValue.serverTimestamp(),
         }, SetOptions(merge: true));
       }
+
       if (mounted) _redirectUser(user);
     }
   }
@@ -183,27 +219,40 @@ class _AuthViewState extends State<AuthView> {
                 Expanded(
                   child: Center(
                     child: SingleChildScrollView(
-                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 20,
+                      ),
                       // 3. REFACTOR: Use GlassCard widget
                       child: SizedBox(
                         // Constrain width for desktop/doctor view
                         width: showDoctorUI ? 380 : double.infinity,
                         child: GlassCard(
-                          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 40),
-                          child: showDoctorUI ? _buildDesktopContent() : _buildMobileContent(),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 32,
+                            vertical: 40,
+                          ),
+                          child:
+                              showDoctorUI
+                                  ? _buildDesktopContent()
+                                  : _buildMobileContent(),
                         ),
                       ),
                     ),
                   ),
                 ),
                 Padding(
-                  padding: const EdgeInsets.only(bottom: 20, left: 24, right: 24),
+                  padding: const EdgeInsets.only(
+                    bottom: 20,
+                    left: 24,
+                    right: 24,
+                  ),
                   child: Text(
                     "Designed & Developed by Sagar Bhowmik • Proudly Made in India 🇮🇳",
                     style: TextStyle(
-                        color: Colors.white.withOpacity(0.2),
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600
+                      color: Colors.white.withOpacity(0.2),
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
                     ),
                     textAlign: TextAlign.center,
                   ),
@@ -223,19 +272,41 @@ class _AuthViewState extends State<AuthView> {
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-              color: AppColors.primary.withOpacity(0.1),
-              shape: BoxShape.circle,
-              border: Border.all(color: AppColors.primary.withOpacity(0.2))
+            color: AppColors.primary.withOpacity(0.1),
+            shape: BoxShape.circle,
+            border: Border.all(color: AppColors.primary.withOpacity(0.2)),
           ),
-          child: const Icon(Icons.medical_services_outlined, size: 40, color: AppColors.primary),
+          child: const Icon(
+            Icons.medical_services_outlined,
+            size: 40,
+            color: AppColors.primary,
+          ),
         ),
         const SizedBox(height: 24),
-        const Text("Dr. Shankar Deb Roy", style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: Colors.white)),
+        const Text(
+          "Dr. Shankar Deb Roy",
+          style: TextStyle(
+            fontSize: 22,
+            fontWeight: FontWeight.w800,
+            color: Colors.white,
+          ),
+        ),
         const SizedBox(height: 8),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-          decoration: BoxDecoration(color: AppColors.glassWhite, borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.white12)),
-          child: const Text("MS (Ortho) • Reg No. 1040 (TSMC)", style: TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.bold)),
+          decoration: BoxDecoration(
+            color: AppColors.glassWhite,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.white12),
+          ),
+          child: const Text(
+            "MS (Ortho) • Reg No. 1040 (TSMC)",
+            style: TextStyle(
+              color: Colors.white70,
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
         ),
         const SizedBox(height: 32),
         _glassTextField(_emailController, "Email ID", false),
@@ -245,9 +316,25 @@ class _AuthViewState extends State<AuthView> {
         SizedBox(
           width: double.infinity,
           child: ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, padding: const EdgeInsets.symmetric(vertical: 18), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              padding: const EdgeInsets.symmetric(vertical: 18),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+            ),
             onPressed: _isLoading ? null : _signInWithEmail,
-            child: _isLoading ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Text("ACCESS DASHBOARD"),
+            child:
+                _isLoading
+                    ? const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                    : const Text("ACCESS DASHBOARD"),
           ),
         ),
       ],
@@ -273,10 +360,14 @@ class _AuthViewState extends State<AuthView> {
                     color: AppColors.success.withOpacity(0.1),
                     blurRadius: 20,
                     spreadRadius: 5,
-                  )
+                  ),
                 ],
               ),
-              child: const Icon(Icons.health_and_safety_rounded, size: 40, color: AppColors.success),
+              child: const Icon(
+                Icons.health_and_safety_rounded,
+                size: 40,
+                color: AppColors.success,
+              ),
             ),
           ),
         ),
@@ -302,10 +393,7 @@ class _AuthViewState extends State<AuthView> {
         const SizedBox(height: 8),
         Text(
           "Agartala Govt. Medical College",
-          style: TextStyle(
-            color: Colors.white.withOpacity(0.4),
-            fontSize: 11,
-          ),
+          style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 11),
         ),
 
         Padding(
@@ -315,7 +403,8 @@ class _AuthViewState extends State<AuthView> {
               Expanded(child: Divider(color: AppColors.glassWhite)),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 10),
-                child: Text("PATIENT PORTAL",
+                child: Text(
+                  "PATIENT PORTAL",
                   style: TextStyle(
                     color: Colors.white.withOpacity(0.2),
                     fontSize: 9,
@@ -331,24 +420,40 @@ class _AuthViewState extends State<AuthView> {
 
         const Text(
           "Hey !",
-          style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: Colors.white),
+          style: TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.w800,
+            color: Colors.white,
+          ),
         ),
         const SizedBox(height: 8),
         Text(
-          _isOtpSent ? "Enter verification code" : "Sign in to manage your Appointments",
+          _isOtpSent
+              ? "Enter verification code"
+              : "Sign in to manage your Appointments",
           style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 13),
         ),
         const SizedBox(height: 32),
 
         if (!_isOtpSent)
-          _glassTextField(_phoneController, "Mobile Number", false, prefix: "+91 "),
+          _glassTextField(
+            _phoneController,
+            "Mobile Number",
+            false,
+            prefix: "+91 ",
+          ),
 
         if (_isOtpSent)
           TextField(
             controller: _otpController,
             keyboardType: TextInputType.number,
             textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold, letterSpacing: 8, color: Colors.white),
+            style: const TextStyle(
+              fontSize: 32,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 8,
+              color: Colors.white,
+            ),
             decoration: const InputDecoration(
               hintText: "••••••",
               hintStyle: TextStyle(letterSpacing: 8, color: Colors.white12),
@@ -363,34 +468,71 @@ class _AuthViewState extends State<AuthView> {
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.success,
               padding: const EdgeInsets.symmetric(vertical: 18),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
               elevation: 0,
             ),
-            onPressed: _isLoading ? null : (_isOtpSent ? _signInWithOTP : _verifyPhone),
-            child: _isLoading
-                ? const SizedBox(height: 24, width: 24, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                : Text(_isOtpSent ? "VERIFY" : "GET OTP", style: const TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1)),
+            onPressed:
+                _isLoading
+                    ? null
+                    : (_isOtpSent ? _signInWithOTP : _verifyPhone),
+            child:
+                _isLoading
+                    ? const SizedBox(
+                      height: 24,
+                      width: 24,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                    : Text(
+                      _isOtpSent ? "VERIFY" : "GET OTP",
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 1,
+                      ),
+                    ),
           ),
         ),
       ],
     );
   }
 
-  Widget _glassTextField(TextEditingController ctrl, String label, bool obscure, {String? prefix}) {
+  Widget _glassTextField(
+    TextEditingController ctrl,
+    String label,
+    bool obscure, {
+    String? prefix,
+  }) {
     // 4. REFACTOR: Updated standard text field to use AppColors
     return Container(
-      decoration: BoxDecoration(color: AppColors.glassWhite, borderRadius: BorderRadius.circular(16)),
+      decoration: BoxDecoration(
+        color: AppColors.glassWhite,
+        borderRadius: BorderRadius.circular(16),
+      ),
       child: TextField(
         controller: ctrl,
         obscureText: obscure,
-        style: const TextStyle(fontSize: 14, color: Colors.white, fontWeight: FontWeight.bold),
+        style: const TextStyle(
+          fontSize: 14,
+          color: Colors.white,
+          fontWeight: FontWeight.bold,
+        ),
         decoration: InputDecoration(
           labelText: label,
           prefixText: prefix,
-          prefixStyle: const TextStyle(color: AppColors.success, fontWeight: FontWeight.bold),
+          prefixStyle: const TextStyle(
+            color: AppColors.success,
+            fontWeight: FontWeight.bold,
+          ),
           labelStyle: const TextStyle(color: Colors.white38, fontSize: 13),
           border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 20,
+            vertical: 16,
+          ),
         ),
       ),
     );
@@ -401,32 +543,56 @@ class _AuthViewState extends State<AuthView> {
     final pCtrl = TextEditingController();
     showDialog(
       context: context,
-      builder: (_) => BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-        child: AlertDialog(
-          backgroundColor: AppColors.surface.withOpacity(0.9),
-          title: const Text("Access", style: TextStyle(color: Colors.white)),
-          content: Column(mainAxisSize: MainAxisSize.min, children: [_glassTextField(eCtrl, "Email", false), const SizedBox(height: 10), _glassTextField(pCtrl, "Password", true)]),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text("CANCEL", style: TextStyle(color: Colors.white54))),
-            ElevatedButton(
-                style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
-                onPressed: () async {
-                  try {
-                    final cred = await _auth.signInWithEmailAndPassword(email: eCtrl.text.trim(), password: pCtrl.text.trim());
-                    if (mounted && cred.user != null) {
-                      Navigator.pop(context);
-                      _redirectUser(cred.user!);
+      builder:
+          (_) => BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+            child: AlertDialog(
+              backgroundColor: AppColors.surface.withOpacity(0.9),
+              title: const Text(
+                "Access",
+                style: TextStyle(color: Colors.white),
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _glassTextField(eCtrl, "Email", false),
+                  const SizedBox(height: 10),
+                  _glassTextField(pCtrl, "Password", true),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text(
+                    "CANCEL",
+                    style: TextStyle(color: Colors.white54),
+                  ),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                  ),
+                  onPressed: () async {
+                    try {
+                      final cred = await _auth.signInWithEmailAndPassword(
+                        email: eCtrl.text.trim(),
+                        password: pCtrl.text.trim(),
+                      );
+                      if (mounted && cred.user != null) {
+                        Navigator.pop(context);
+                        _redirectUser(cred.user!);
+                      }
+                    } catch (e) {
+                      ScaffoldMessenger.of(
+                        context,
+                      ).showSnackBar(SnackBar(content: Text(e.toString())));
                     }
-                  } catch (e) {
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
-                  }
-                },
-                child: const Text("GET IN")
-            )
-          ],
-        ),
-      ),
+                  },
+                  child: const Text("GET IN"),
+                ),
+              ],
+            ),
+          ),
     );
   }
 }

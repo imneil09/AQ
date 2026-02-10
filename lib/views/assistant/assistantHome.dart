@@ -1,13 +1,10 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-
 // DRY Widgets & Constants
 import '../../widgets/appColors.dart';
 import '../../widgets/backgroundBlur.dart';
 import '../../widgets/glassCard.dart';
-
 import '../../controllers/queueController.dart';
 import '../../models/appoinmentModel.dart';
 import '../../widgets/appointment.dart';
@@ -160,12 +157,17 @@ class _AssistantHomeViewState extends State<AssistantHomeView>
               child: DropdownButton<String>(
                 value: queue.selectedClinic?.id,
                 dropdownColor: AppColors.surface,
+                isExpanded: true, // FIXED: Prevents overflow
                 style: const TextStyle(
                     color: Colors.white, fontWeight: FontWeight.bold),
                 items: queue.clinics.map((clinic) {
                   return DropdownMenuItem<String>(
                     value: clinic.id,
-                    child: Text(clinic.name),
+                    child: Text(
+                      clinic.name,
+                      overflow: TextOverflow.ellipsis, // FIXED: Truncates long text
+                      maxLines: 1,
+                    ),
                   );
                 }).toList(),
                 onChanged: (clinicId) {
@@ -263,17 +265,17 @@ class _AssistantHomeViewState extends State<AssistantHomeView>
       child: Row(
         children: [
           _buildMetricCard(
+            "PENDING",
+            cancelledCount.toString(),
+            Icons.pending_outlined,
+            accentColor: AppColors.error,
+          ),
+          const SizedBox(width: 16),
+          _buildMetricCard(
             "COMPLETED",
             completedCount.toString(),
             Icons.check_circle_outline_rounded,
             accentColor: AppColors.success,
-          ),
-          const SizedBox(width: 16),
-          _buildMetricCard(
-            "CANCELLED",
-            cancelledCount.toString(),
-            Icons.cancel_outlined,
-            accentColor: AppColors.error,
           ),
         ],
       ),
@@ -322,7 +324,7 @@ class _AssistantHomeViewState extends State<AssistantHomeView>
         style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         decoration: const InputDecoration(
           border: InputBorder.none,
-          hintText: "Search waiting patients...",
+          hintText: "Search",
           hintStyle: TextStyle(color: Colors.white38, fontSize: 13),
           icon: Icon(Icons.search_rounded, color: Colors.white38, size: 20),
         ),
