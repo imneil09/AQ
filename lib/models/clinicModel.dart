@@ -1,4 +1,4 @@
-// lib/models/clinicModel.dart
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class Clinic {
   final String id;
@@ -6,6 +6,7 @@ class Clinic {
   final String name;
   final String address;
   final Map<String, ClinicSchedule> weeklySchedule;
+  final List<DateTime> emergencyClosedDates;
 
   Clinic({
     required this.id,
@@ -13,6 +14,7 @@ class Clinic {
     required this.name,
     required this.address,
     required this.weeklySchedule,
+    this.emergencyClosedDates = const [],
   });
 
   Map<String, dynamic> toMap() {
@@ -23,6 +25,9 @@ class Clinic {
       'weeklySchedule': weeklySchedule.map(
             (key, value) => MapEntry(key, value.toMap()),
       ),
+      'emergencyClosedDates': emergencyClosedDates
+          .map((date) => Timestamp.fromDate(date))
+          .toList(),
     };
   }
 
@@ -36,6 +41,10 @@ class Clinic {
             (k, v) => MapEntry(k, ClinicSchedule.fromMap(v as Map<String, dynamic>)),
       ) ??
           {},
+      emergencyClosedDates: (map['emergencyClosedDates'] as List<dynamic>?)
+          ?.map((e) => (e as Timestamp).toDate())
+          .toList() ??
+          [],
     );
   }
 }
@@ -49,7 +58,7 @@ class ClinicSchedule {
   ClinicSchedule({
     required this.isOpen,
     required this.startTime,
-    this.avgConsultationTimeMinutes = 10, // Default 10 min
+    this.avgConsultationTimeMinutes = 10, // Default 10 min rule
     required this.maxAppointmentsPerDay,
   });
 

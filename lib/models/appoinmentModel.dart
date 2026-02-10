@@ -1,12 +1,13 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-// UPDATED STATUS ENUM: Strictly waiting, active, skipped, completed, cancelled
-enum AppointmentStatus { waiting, active, skipped, completed, cancelled }
+// STRICT STATUS ENUM
+enum AppointmentStatus { scheduled, waiting, active, skipped, completed, cancelled }
 
 class Appointment {
   final String id;
   final String clinicId;
   final String doctorId;
+  final String? userId; // Links to UserModel (Patient ID)
   final String customerName;
   final String phoneNumber;
   final String serviceType;
@@ -15,12 +16,13 @@ class Appointment {
   final DateTime bookingTimestamp;
   final int tokenNumber;
   AppointmentStatus status;
-  DateTime? estimatedTime; // Helper for UI display
+  DateTime? estimatedTime; // Helper for UI, calculated dynamically in Controller
 
   Appointment({
     required this.id,
     required this.clinicId,
     required this.doctorId,
+    this.userId,
     required this.customerName,
     required this.phoneNumber,
     required this.serviceType,
@@ -36,6 +38,7 @@ class Appointment {
     return {
       'clinicId': clinicId,
       'doctorId': doctorId,
+      'userId': userId,
       'customerName': customerName,
       'phoneNumber': phoneNumber,
       'serviceType': serviceType,
@@ -58,9 +61,10 @@ class Appointment {
       id: docId,
       clinicId: map['clinicId'] ?? '',
       doctorId: map['doctorId'] ?? '',
+      userId: map['userId'],
       customerName: map['customerName'] ?? 'Unknown',
       phoneNumber: map['phoneNumber'] ?? '',
-      serviceType: map['serviceType'] ?? 'New Consultation',
+      serviceType: map['serviceType'] ?? 'General',
       type: map['type'] ?? 'live',
       appointmentDate: toDateTime(map['appointmentDate']),
       bookingTimestamp: toDateTime(map['bookingTimestamp']),
