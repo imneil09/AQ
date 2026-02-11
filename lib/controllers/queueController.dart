@@ -557,4 +557,31 @@ class QueueController extends ChangeNotifier {
               .toList();
         });
   }
+  // --- PATIENT: UPCOMING APPOINTMENTS ---
+  Stream<List<Appointment>> get myUpcomingAppointments {
+    final user = _auth.currentUser;
+    if (user == null) return Stream.value([]);
+
+    final now = DateTime.now();
+    final todayStart = DateTime(now.year, now.month, now.day);
+
+    // 1. Fetch all active appointments for this specific patient
+    // 2. Filter & Sort locally to avoid needing a complex Firestore Index!
+    return _db
+        .collection('appointments')
+        .where('patientId', isEqualTo: user.uid)
+        .where('status', whereIn: ['waiting', 'active', 'skipped'])
+        .snapshots()
+        .map((snap) {
+      var list = snap.docs.map((d) => Appointment.fromMap(d.data(), d.id)).toList();
+
+      // Only keep appointments for Today or the Future
+      list = list.where((a) => !a.appointmentDate.isBefore(todayStart)).toList();
+
+      // Sort them so the closest appointment shows up first
+      list.sort((a, b) => a.appointmentDate.compareTo(b.appointmentDate));
+
+      return list;
+    });
+  }
 }

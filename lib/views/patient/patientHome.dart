@@ -54,18 +54,19 @@ class _PatientHomeViewState extends State<PatientHomeView> with SingleTickerProv
   Widget build(BuildContext context) {
     final queue = Provider.of<QueueController>(context);
 
-    // Using patientHistory stream to get all current and future appointments chronologically
+    // CHANGED: Now listening to the dedicated upcoming appointments stream!
     return StreamBuilder<List<Appointment>>(
-        stream: queue.patientHistory,
+        stream: queue.myUpcomingAppointments,
         builder: (context, snapshot) {
-          final appointments = snapshot.data ?? [];
 
-          // Filter to show only active/waiting/skipped (current and future)
-          // We exclude 'completed' and 'cancelled' as they belong in HistoryView
-          final activeAppointments = appointments.where((a) =>
-          a.status != AppointmentStatus.completed &&
-              a.status != AppointmentStatus.cancelled
-          ).toList();
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Scaffold(
+              backgroundColor: AppColors.background,
+              body: Center(child: CircularProgressIndicator(color: AppColors.primary)),
+            );
+          }
+
+          final activeAppointments = snapshot.data ?? [];
 
           return Scaffold(
             extendBodyBehindAppBar: true,
@@ -209,9 +210,18 @@ class _PatientHomeViewState extends State<PatientHomeView> with SingleTickerProv
 
     // Determine estimated wait time string
     String waitTimeStr = "Calculating...";
-    if (appt.estimatedTime != null) {
-      waitTimeStr = DateFormat('hh:mm a').format(appt.estimatedTime!);
-    } else if (!isLive) {
+
+    // Look up in the _todayQueue to see if we have a live estimated time
+    if (isLive) {
+      try {
+        final liveAppt = queue.history.firstWhere((a) => a.id == appt.id);
+        if (liveAppt.estimatedTime != null) {
+          waitTimeStr = DateFormat('hh:mm a').format(liveAppt.estimatedTime!);
+        }
+      } catch (e) {
+        // Not in the live queue yet
+      }
+    } else {
       waitTimeStr = "Scheduled";
     }
 

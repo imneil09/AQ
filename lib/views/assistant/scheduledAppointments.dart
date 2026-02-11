@@ -69,14 +69,14 @@ class _ScheduledAppointmentsViewState extends State<ScheduledAppointmentsView> {
                 lastDate: DateTime.now().add(const Duration(days: 365)),
                 builder:
                     (context, child) => Theme(
-                      data: ThemeData.dark().copyWith(
-                        colorScheme: const ColorScheme.dark(
-                          primary: AppColors.primary,
-                          surface: AppColors.surface,
-                        ),
-                      ),
-                      child: child!,
+                  data: ThemeData.dark().copyWith(
+                    colorScheme: const ColorScheme.dark(
+                      primary: AppColors.primary,
+                      surface: AppColors.surface,
                     ),
+                  ),
+                  child: child!,
+                ),
               );
               if (picked != null) {
                 setState(() => _selectedFilterDate = picked);
@@ -176,15 +176,15 @@ class _ScheduledAppointmentsViewState extends State<ScheduledAppointmentsView> {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
           color:
-              hasFilter
-                  ? AppColors.primary.withOpacity(0.1)
-                  : AppColors.glassWhite.withOpacity(0.05),
+          hasFilter
+              ? AppColors.primary.withOpacity(0.1)
+              : AppColors.glassWhite.withOpacity(0.05),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color:
-                hasFilter
-                    ? AppColors.primary.withOpacity(0.3)
-                    : AppColors.glassBorder,
+            hasFilter
+                ? AppColors.primary.withOpacity(0.3)
+                : AppColors.glassBorder,
           ),
         ),
         child: Row(
@@ -214,8 +214,8 @@ class _ScheduledAppointmentsViewState extends State<ScheduledAppointmentsView> {
                   Text(
                     hasFilter
                         ? DateFormat(
-                          'EEEE, MMMM dd, yyyy',
-                        ).format(_selectedFilterDate!)
+                      'EEEE, MMMM dd, yyyy',
+                    ).format(_selectedFilterDate!)
                         : "All scheduled appointments",
                     style: const TextStyle(
                       color: Colors.white,
@@ -413,11 +413,11 @@ class _ScheduledAppointmentsViewState extends State<ScheduledAppointmentsView> {
   }
 
   Widget _buildMiniStat(
-    IconData icon,
-    String label,
-    String value, {
-    Color valueColor = Colors.white,
-  }) {
+      IconData icon,
+      String label,
+      String value, {
+        Color valueColor = Colors.white,
+      }) {
     return Expanded(
       child: Row(
         children: [
