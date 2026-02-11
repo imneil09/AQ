@@ -276,7 +276,7 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
         ),
         child: Row(
           children: [
-            Icon(onBreak ? Icons.coffee : Icons.play_circle_fill,
+            Icon(onBreak ? Icons.airline_seat_legroom_extra_sharp : Icons.play_circle_fill,
                 size: 16, color: color),
             const SizedBox(width: 8),
             Text(onBreak ? "ON BREAK" : "ACTIVE",
@@ -292,7 +292,7 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.coffee_outlined, size: 80, color: Colors.amber),
+          const Icon(Icons.pause_circle_filled, size: 80, color: Colors.amber),
           const SizedBox(height: 24),
           const Text("Consultation Paused", style: TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.w900)),
           const SizedBox(height: 40),

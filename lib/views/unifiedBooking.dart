@@ -53,6 +53,17 @@ class _UnifiedBookingViewState extends State<UnifiedBookingView> {
   }
 
   Future<void> _pickDate() async {
+    // For patients, they MUST select a clinic first before they can pick a date
+    if (!widget.isAssistant && _selectedClinic == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Please select a clinic first"),
+          backgroundColor: AppColors.error,
+        ),
+      );
+      return;
+    }
+
     final DateTime now = DateTime.now();
     // Assistants can pick from today onwards. Patients pick from tomorrow onwards.
     final DateTime firstDate = widget.isAssistant ? now : now.add(const Duration(days: 1));
@@ -60,14 +71,46 @@ class _UnifiedBookingViewState extends State<UnifiedBookingView> {
     // Safety fix: Prevents Flutter crash if selectedDate falls behind firstDate
     DateTime initialDate = _selectedDate.isBefore(firstDate) ? firstDate : _selectedDate;
 
+    // Safety check: Ensure initialDate itself is a valid selectable day!
+    // If the clinic is closed on 'initialDate', the DatePicker will crash on load.
+    if (_selectedClinic != null) {
+      String initialDayName = DateFormat('EEEE').format(initialDate);
+      bool isOpenOnInitialDate = _selectedClinic!.weeklySchedule[initialDayName]?.isOpen ?? false;
+
+      // If the default day is closed, scan forward up to 7 days to find an open day to start on
+      if (!isOpenOnInitialDate) {
+        for (int i = 1; i <= 7; i++) {
+          DateTime nextDay = initialDate.add(Duration(days: i));
+          String nextDayName = DateFormat('EEEE').format(nextDay);
+          if (_selectedClinic!.weeklySchedule[nextDayName]?.isOpen ?? false) {
+            initialDate = nextDay;
+            break;
+          }
+        }
+      }
+    }
+
     final DateTime? picked = await showDatePicker(
       context: context,
       initialDate: initialDate,
       firstDate: firstDate,
       lastDate: DateTime.now().add(const Duration(days: 30)),
-      selectableDayPredicate: _selectedClinic == null
-          ? null
-          : (d) => _selectedClinic!.weeklySchedule[DateFormat('EEEE').format(d)]?.isOpen ?? false,
+      selectableDayPredicate: (DateTime d) {
+        if (_selectedClinic == null) return true;
+
+        // 1. Check if the clinic has marked this specific date as an Emergency Closed Date
+        final cleanDate = DateTime(d.year, d.month, d.day);
+        bool isEmergencyClosed = _selectedClinic!.emergencyClosedDates.any((closedDate) =>
+        closedDate.year == cleanDate.year &&
+            closedDate.month == cleanDate.month &&
+            closedDate.day == cleanDate.day);
+
+        if (isEmergencyClosed) return false;
+
+        // 2. Check the regular weekly schedule
+        String dayName = DateFormat('EEEE').format(d);
+        return _selectedClinic!.weeklySchedule[dayName]?.isOpen ?? false;
+      },
       builder: (context, child) => Theme(
         data: ThemeData.dark().copyWith(
           colorScheme: const ColorScheme.dark(
@@ -80,7 +123,10 @@ class _UnifiedBookingViewState extends State<UnifiedBookingView> {
         child: child!,
       ),
     );
-    if (picked != null) setState(() => _selectedDate = picked);
+
+    if (picked != null) {
+      setState(() => _selectedDate = picked);
+    }
   }
 
   Future<void> _submit() async {
@@ -279,7 +325,16 @@ class _UnifiedBookingViewState extends State<UnifiedBookingView> {
           value: c,
           child: Text(c.name, style: const TextStyle(color: Colors.white, fontSize: 15))
       )).toList(),
-      onChanged: (val) => setState(() => _selectedClinic = val),
+      onChanged: (val) {
+        setState(() {
+          _selectedClinic = val;
+          // Reset the selected date when a new clinic is chosen, to force
+          // the system to find a valid opening date for the newly selected clinic
+          if (!widget.isAssistant) {
+            _selectedDate = DateTime.now().add(const Duration(days: 1));
+          }
+        });
+      },
       decoration: _inputStyle("Select preferred clinic", Icons.medical_services_outlined),
       validator: (v) => v == null ? "Please select a clinic" : null,
     );

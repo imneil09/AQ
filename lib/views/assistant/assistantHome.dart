@@ -1,6 +1,7 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 // DRY Widgets & Constants
 import '../../widgets/appColors.dart';
 import '../../widgets/backgroundBlur.dart';
@@ -11,6 +12,7 @@ import '../../widgets/appointment.dart';
 import '../history.dart';
 import '../unifiedBooking.dart';
 import 'createClinic.dart';
+import 'scheduledAppointments.dart'; // We will create this file next
 import '../auth.dart';
 
 class AssistantHomeView extends StatefulWidget {
@@ -157,7 +159,7 @@ class _AssistantHomeViewState extends State<AssistantHomeView>
               child: DropdownButton<String>(
                 value: queue.selectedClinic?.id,
                 dropdownColor: AppColors.surface,
-                isExpanded: true, // FIXED: Prevents overflow
+                isExpanded: true,
                 style: const TextStyle(
                     color: Colors.white, fontWeight: FontWeight.bold),
                 items: queue.clinics.map((clinic) {
@@ -165,7 +167,7 @@ class _AssistantHomeViewState extends State<AssistantHomeView>
                     value: clinic.id,
                     child: Text(
                       clinic.name,
-                      overflow: TextOverflow.ellipsis, // FIXED: Truncates long text
+                      overflow: TextOverflow.ellipsis,
                       maxLines: 1,
                     ),
                   );
@@ -198,7 +200,7 @@ class _AssistantHomeViewState extends State<AssistantHomeView>
         ],
       ),
       actions: [
-        // Create New Clinic
+        // Create New Clinic (Kept visible as requested)
         IconButton(
           icon: const Icon(Icons.add_business_rounded, color: Colors.white70),
           onPressed: () => Navigator.push(
@@ -206,31 +208,56 @@ class _AssistantHomeViewState extends State<AssistantHomeView>
             MaterialPageRoute(builder: (_) => const CreateClinicView()),
           ),
         ),
-        // History
-        IconButton(
-          icon: const Icon(Icons.receipt_long_rounded, color: AppColors.primary),
-          onPressed: () => Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const HistoryView(isAdmin: true)),
-          ),
-        ),
-        // Menu (Close/Logout)
+        // Consolidated Menu (Schedule, History, Close, Logout)
         PopupMenuButton<String>(
-          icon: const Icon(Icons.more_vert_rounded, color: Colors.white70),
+          icon: const Icon(Icons.more_vert_rounded, color: Colors.white),
           color: AppColors.surface,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           onSelected: (value) {
+            if (value == 'schedule') {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const ScheduledAppointmentsView()),
+              );
+            }
+            if (value == 'history') {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const HistoryView(isAdmin: true)),
+              );
+            }
             if (value == 'close') _handleEmergencyClose(context, queue);
             if (value == 'logout') _handleLogout(context, queue);
           },
           itemBuilder: (context) => [
             const PopupMenuItem(
+              value: 'schedule',
+              child: Row(
+                children: [
+                  Icon(Icons.calendar_month, color: AppColors.primary, size: 20),
+                  SizedBox(width: 12),
+                  Text("Scheduled Appointments", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                ],
+              ),
+            ),
+            const PopupMenuItem(
+              value: 'history',
+              child: Row(
+                children: [
+                  Icon(Icons.work_history_outlined, color: Colors.white70, size: 20),
+                  SizedBox(width: 12),
+                  Text("Consultation History", style: TextStyle(color: Colors.white)),
+                ],
+              ),
+            ),
+            const PopupMenuDivider(height: 1),
+            const PopupMenuItem(
               value: 'close',
               child: Row(
                 children: [
-                  Icon(Icons.warning_amber_rounded,
-                      color: AppColors.error, size: 20),
+                  Icon(Icons.warning_outlined, color: AppColors.error, size: 20),
                   SizedBox(width: 12),
-                  Text("Emergency Close", style: TextStyle(color: Colors.white)),
+                  Text("Emergency Close", style: TextStyle(color: AppColors.error)),
                 ],
               ),
             ),
@@ -238,9 +265,9 @@ class _AssistantHomeViewState extends State<AssistantHomeView>
               value: 'logout',
               child: Row(
                 children: [
-                  Icon(Icons.logout_rounded, color: Colors.white54, size: 20),
+                  Icon(Icons.power_settings_new_rounded, color: AppColors.error, size: 20),
                   SizedBox(width: 12),
-                  Text("Logout", style: TextStyle(color: Colors.white)),
+                  Text("Logout", style: TextStyle(color: AppColors.error)),
                 ],
               ),
             ),
@@ -252,7 +279,6 @@ class _AssistantHomeViewState extends State<AssistantHomeView>
   }
 
   Widget _buildMetricsHeader(QueueController queue) {
-    // Metrics based on today's queue history
     final completedCount = queue.history
         .where((e) => e.status == AppointmentStatus.completed)
         .length;
