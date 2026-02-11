@@ -172,7 +172,7 @@ class _UnifiedBookingViewState extends State<UnifiedBookingView> {
       extendBodyBehindAppBar: true,
       appBar: AppBar(
         title: Text(
-            widget.isAssistant ? "WALK-IN / BOOKING" : "NEW APPOINTMENT",
+            widget.isAssistant ? "WALK-IN / NEW APPOINTMENT" : "NEW APPOINTMENT",
             style: const TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1.5, fontSize: 13)
         ),
         centerTitle: true,
@@ -290,7 +290,7 @@ class _UnifiedBookingViewState extends State<UnifiedBookingView> {
       value: _selectedService,
       dropdownColor: AppColors.surface,
       icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Colors.white38),
-      items: ['New Consultation', 'Follow-up', 'Reports Show', 'Emergency']
+      items: ['New Consultation', 'Follow-up', 'Reports Show', 'Post-OP', 'Emergency']
           .map((s) => DropdownMenuItem(
           value: s,
           child: Text(s, style: const TextStyle(color: Colors.white, fontSize: 15))
