@@ -95,6 +95,7 @@ class _AuthViewState extends State<AuthView> {
         password: _passwordController.text.trim(),
       );
       if (mounted && cred.user != null) {
+        await _handleStaffSuccess(cred.user!); // Create staff doc if missing
         _redirectUser(cred.user!);
       }
     } catch (e) {
@@ -129,10 +130,10 @@ class _AuthViewState extends State<AuthView> {
       },
       codeSent:
           (id, _) => setState(() {
-            _verificationId = id;
-            _isOtpSent = true;
-            _isLoading = false;
-          }),
+        _verificationId = id;
+        _isOtpSent = true;
+        _isLoading = false;
+      }),
       codeAutoRetrievalTimeout: (_) {},
     );
   }
@@ -157,35 +158,97 @@ class _AuthViewState extends State<AuthView> {
     }
   }
 
-  /// FIRESTORE INTEGRATION
-  /// Ensures the user exists in the 'users' collection with the correct schema
+  /// FIRESTORE INTEGRATION (PATIENTS)
+  /// Ensures the user exists, and merges "Shadow Accounts" if they were created by an Assistant
   Future<void> _handleCustomerSuccess() async {
     final user = _auth.currentUser;
     if (user != null) {
-      final userRef = FirebaseFirestore.instance
+      final newUid = user.uid;
+      final phone = user.phoneNumber;
+
+      // 1. Look for an existing Shadow Account with this phone number
+      final shadowQuery = await FirebaseFirestore.instance
           .collection('users')
-          .doc(user.uid);
+          .where('phoneNumber', isEqualTo: phone)
+          .where('isShadowAccount', isEqualTo: true)
+          .get();
 
-      // 1. ALWAYS ensure these critical fields exist (No 'if' check needed!)
-      // 'merge: true' makes this safe: it won't delete the name if it's already there.
-      await userRef.set({
-        'uid': user.uid,
-        'phoneNumber': user.phoneNumber,
-        'role': 'patient',
-        'isShadowAccount': false,
-      }, SetOptions(merge: true));
+      if (shadowQuery.docs.isNotEmpty) {
+        // --- SHADOW ACCOUNT FOUND! MERGE DATA ---
+        final shadowDoc = shadowQuery.docs.first;
+        final shadowId = shadowDoc.id;
+        final shadowData = shadowDoc.data();
 
-      // 2. Only set 'name' and 'createdAt' if they are truly missing
-      // (This preserves the user's name if they have already set one)
-      final doc = await userRef.get();
-      if (!doc.exists || !doc.data()!.containsKey('createdAt')) {
-        await userRef.set({
-          'name': 'Guest Patient',
-          'createdAt': FieldValue.serverTimestamp(),
+        // We use a Batch to ensure all transfers happen safely at the same time
+        final batch = FirebaseFirestore.instance.batch();
+
+        // A. Find all old appointments linked to the Shadow ID and update them to the real Auth ID
+        final appointmentsQuery = await FirebaseFirestore.instance
+            .collection('appointments') // Ensure this matches your appointments collection name
+            .where('patientId', isEqualTo: shadowId)
+            .get();
+
+        for (var doc in appointmentsQuery.docs) {
+          batch.update(doc.reference, {'patientId': newUid});
+        }
+
+        // B. Create the new Real User Document using the Shadow Account's name
+        final newDocRef = FirebaseFirestore.instance.collection('users').doc(newUid);
+        batch.set(newDocRef, {
+          'uid': newUid,
+          'phoneNumber': phone,
+          'name': shadowData['name'] ?? 'Guest Patient', // Keep the name the assistant typed!
+          'role': 'patient',
+          'isShadowAccount': false, // No longer a shadow account!
+          'createdAt': shadowData['createdAt'] ?? FieldValue.serverTimestamp(),
         }, SetOptions(merge: true));
+
+        // C. Delete the old Shadow Document so it doesn't clutter your database
+        batch.delete(shadowDoc.reference);
+
+        // Commit the transfer
+        await batch.commit();
+
+      } else {
+        // --- NO SHADOW ACCOUNT FOUND (NORMAL LOGIN/SIGNUP) ---
+        final userRef = FirebaseFirestore.instance.collection('users').doc(newUid);
+        await userRef.set({
+          'uid': newUid,
+          'phoneNumber': phone,
+          'role': 'patient',
+          'isShadowAccount': false,
+        }, SetOptions(merge: true));
+
+        final doc = await userRef.get();
+        if (!doc.exists || !doc.data()!.containsKey('createdAt')) {
+          await userRef.set({
+            'name': 'Guest Patient',
+            'createdAt': FieldValue.serverTimestamp(),
+          }, SetOptions(merge: true));
+        }
       }
 
       if (mounted) _redirectUser(user);
+    }
+  }
+
+  /// FIRESTORE INTEGRATION (STAFF)
+  /// Ensures the Staff (Doctor/Assistant) has a valid document in the 'users' collection
+  Future<void> _handleStaffSuccess(User user) async {
+    final userRef = FirebaseFirestore.instance.collection('users').doc(user.uid);
+    final doc = await userRef.get();
+
+    // Only create the document if it wasn't manually created in Firestore yet
+    if (!doc.exists) {
+      await userRef.set({
+        'uid': user.uid,
+        'phoneNumber': '', // Staff uses email, so phone can be empty
+        'email': user.email,
+        'name': 'Dr. Shankar Deb Roy & Staff',
+        'role': 'doctor', // Because they share an account, they share this role
+        'isShadowAccount': false,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
     }
   }
 
@@ -196,10 +259,8 @@ class _AuthViewState extends State<AuthView> {
     return Scaffold(
       body: Stack(
         children: [
-          // 1. REFACTOR: Use AppColors
           Container(color: AppColors.background),
 
-          // 2. REFACTOR: Use BackgroundBlur widget
           BackgroundBlur(
             color: AppColors.primary.withOpacity(0.15),
             size: 400,
@@ -223,7 +284,6 @@ class _AuthViewState extends State<AuthView> {
                         horizontal: 24,
                         vertical: 20,
                       ),
-                      // 3. REFACTOR: Use GlassCard widget
                       child: SizedBox(
                         // Constrain width for desktop/doctor view
                         width: showDoctorUI ? 380 : double.infinity,
@@ -233,9 +293,9 @@ class _AuthViewState extends State<AuthView> {
                             vertical: 40,
                           ),
                           child:
-                              showDoctorUI
-                                  ? _buildDesktopContent()
-                                  : _buildMobileContent(),
+                          showDoctorUI
+                              ? _buildDesktopContent()
+                              : _buildMobileContent(),
                         ),
                       ),
                     ),
@@ -325,16 +385,16 @@ class _AuthViewState extends State<AuthView> {
             ),
             onPressed: _isLoading ? null : _signInWithEmail,
             child:
-                _isLoading
-                    ? const SizedBox(
-                      height: 20,
-                      width: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
-                      ),
-                    )
-                    : const Text("ACCESS DASHBOARD"),
+            _isLoading
+                ? const SizedBox(
+              height: 20,
+              width: 20,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: Colors.white,
+              ),
+            )
+                : const Text("ACCESS DASHBOARD"),
           ),
         ),
       ],
@@ -474,26 +534,26 @@ class _AuthViewState extends State<AuthView> {
               elevation: 0,
             ),
             onPressed:
-                _isLoading
-                    ? null
-                    : (_isOtpSent ? _signInWithOTP : _verifyPhone),
+            _isLoading
+                ? null
+                : (_isOtpSent ? _signInWithOTP : _verifyPhone),
             child:
-                _isLoading
-                    ? const SizedBox(
-                      height: 24,
-                      width: 24,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
-                      ),
-                    )
-                    : Text(
-                      _isOtpSent ? "VERIFY" : "GET OTP",
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 1,
-                      ),
-                    ),
+            _isLoading
+                ? const SizedBox(
+              height: 24,
+              width: 24,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: Colors.white,
+              ),
+            )
+                : Text(
+              _isOtpSent ? "VERIFY" : "GET OTP",
+              style: const TextStyle(
+                fontWeight: FontWeight.w900,
+                letterSpacing: 1,
+              ),
+            ),
           ),
         ),
       ],
@@ -501,12 +561,11 @@ class _AuthViewState extends State<AuthView> {
   }
 
   Widget _glassTextField(
-    TextEditingController ctrl,
-    String label,
-    bool obscure, {
-    String? prefix,
-  }) {
-    // 4. REFACTOR: Updated standard text field to use AppColors
+      TextEditingController ctrl,
+      String label,
+      bool obscure, {
+        String? prefix,
+      }) {
     return Container(
       decoration: BoxDecoration(
         color: AppColors.glassWhite,
@@ -545,54 +604,55 @@ class _AuthViewState extends State<AuthView> {
       context: context,
       builder:
           (_) => BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-            child: AlertDialog(
-              backgroundColor: AppColors.surface.withOpacity(0.9),
-              title: const Text(
-                "Access",
-                style: TextStyle(color: Colors.white),
-              ),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _glassTextField(eCtrl, "Email", false),
-                  const SizedBox(height: 10),
-                  _glassTextField(pCtrl, "Password", true),
-                ],
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text(
-                    "CANCEL",
-                    style: TextStyle(color: Colors.white54),
-                  ),
-                ),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                  ),
-                  onPressed: () async {
-                    try {
-                      final cred = await _auth.signInWithEmailAndPassword(
-                        email: eCtrl.text.trim(),
-                        password: pCtrl.text.trim(),
-                      );
-                      if (mounted && cred.user != null) {
-                        Navigator.pop(context);
-                        _redirectUser(cred.user!);
-                      }
-                    } catch (e) {
-                      ScaffoldMessenger.of(
-                        context,
-                      ).showSnackBar(SnackBar(content: Text(e.toString())));
-                    }
-                  },
-                  child: const Text("GET IN"),
-                ),
-              ],
-            ),
+        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+        child: AlertDialog(
+          backgroundColor: AppColors.surface.withOpacity(0.9),
+          title: const Text(
+            "Access",
+            style: TextStyle(color: Colors.white),
           ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _glassTextField(eCtrl, "Email", false),
+              const SizedBox(height: 10),
+              _glassTextField(pCtrl, "Password", true),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text(
+                "CANCEL",
+                style: TextStyle(color: Colors.white54),
+              ),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+              ),
+              onPressed: () async {
+                try {
+                  final cred = await _auth.signInWithEmailAndPassword(
+                    email: eCtrl.text.trim(),
+                    password: pCtrl.text.trim(),
+                  );
+                  if (mounted && cred.user != null) {
+                    Navigator.pop(context);
+                    await _handleStaffSuccess(cred.user!); // Create staff doc if missing
+                    _redirectUser(cred.user!);
+                  }
+                } catch (e) {
+                  ScaffoldMessenger.of(
+                    context,
+                  ).showSnackBar(SnackBar(content: Text(e.toString())));
+                }
+              },
+              child: const Text("GET IN"),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

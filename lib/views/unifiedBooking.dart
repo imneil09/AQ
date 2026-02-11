@@ -2,6 +2,8 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 // Imports for DRY widgets
 import '../widgets/appColors.dart';
@@ -25,7 +27,7 @@ class _UnifiedBookingViewState extends State<UnifiedBookingView> {
   final _phoneController = TextEditingController();
 
   Clinic? _selectedClinic;
-  DateTime _selectedDate = DateTime.now();
+  late DateTime _selectedDate;
   String _selectedService = 'New Consultation';
   bool _isLoading = false;
 
@@ -34,9 +36,12 @@ class _UnifiedBookingViewState extends State<UnifiedBookingView> {
     super.initState();
     final queue = Provider.of<QueueController>(context, listen: false);
 
-    // If Assistant, auto-select the clinic they are managing
     if (widget.isAssistant) {
       _selectedClinic = queue.selectedClinic;
+      _selectedDate = DateTime.now(); // Assistants default to booking for Today
+    } else {
+      // Patients must book starting from Tomorrow
+      _selectedDate = DateTime.now().add(const Duration(days: 1));
     }
   }
 
@@ -48,9 +53,12 @@ class _UnifiedBookingViewState extends State<UnifiedBookingView> {
   }
 
   Future<void> _pickDate() async {
-    // Assistants book for Today (Walk-in), Patients book for Tomorrow onwards
-    final DateTime initialDate = widget.isAssistant ? DateTime.now() : _selectedDate;
-    final DateTime firstDate = widget.isAssistant ? DateTime.now() : DateTime.now().add(const Duration(days: 1));
+    final DateTime now = DateTime.now();
+    // Assistants can pick from today onwards. Patients pick from tomorrow onwards.
+    final DateTime firstDate = widget.isAssistant ? now : now.add(const Duration(days: 1));
+
+    // Safety fix: Prevents Flutter crash if selectedDate falls behind firstDate
+    DateTime initialDate = _selectedDate.isBefore(firstDate) ? firstDate : _selectedDate;
 
     final DateTime? picked = await showDatePicker(
       context: context,
@@ -83,32 +91,65 @@ class _UnifiedBookingViewState extends State<UnifiedBookingView> {
 
     try {
       if (widget.isAssistant) {
-        // --- BACKEND: WALK-IN LOGIC ---
-        // 1. Checks if user exists by Phone.
-        // 2. If no, creates 'Shadow Account'.
-        // 3. Books appointment for 'Now'.
-        await queue.assistantAddWalkIn(
-          _nameController.text.trim(),
-          _phoneController.text.trim(),
-          _selectedService,
-        );
-      } else {
-        // --- BACKEND: PATIENT LOGIC ---
-        // 1. Uses current Auth UID.
-        // 2. Books for selected future date.
+        // --- BACKEND: ASSISTANT LOGIC (SHADOW ACCOUNTS) ---
+        final phone = "+91${_phoneController.text.trim()}";
+        final name = _nameController.text.trim();
+
+        // 1. Check if user already exists by Phone Number
+        final usersSnapshot = await FirebaseFirestore.instance
+            .collection('users')
+            .where('phoneNumber', isEqualTo: phone)
+            .limit(1)
+            .get();
+
+        String targetPatientId;
+        if (usersSnapshot.docs.isNotEmpty) {
+          // User exists! Use their existing account ID
+          targetPatientId = usersSnapshot.docs.first.id;
+        } else {
+          // User does not exist! Create a Shadow Account without OTP
+          final newDocRef = FirebaseFirestore.instance.collection('users').doc();
+          targetPatientId = newDocRef.id;
+
+          await newDocRef.set({
+            'uid': targetPatientId,
+            'phoneNumber': phone,
+            'name': name,
+            'role': 'patient',
+            'isShadowAccount': true,
+            'createdAt': FieldValue.serverTimestamp(),
+          });
+        }
+
+        // 2. Book appointment and assign it to the target user
         await queue.bookAppointment(
-          name: _nameController.text.trim(),
-          phone: _phoneController.text.trim(),
+          name: name,
+          phone: phone,
           service: _selectedService,
           date: _selectedDate,
           clinicId: _selectedClinic!.id,
+          patientId: targetPatientId, // Pass the explicit ID
+        );
+
+      } else {
+        // --- BACKEND: PATIENT LOGIC ---
+        final currentUser = FirebaseAuth.instance.currentUser;
+        if (currentUser == null) throw Exception("User not logged in");
+
+        await queue.bookAppointment(
+          name: _nameController.text.trim(),
+          phone: currentUser.phoneNumber ?? "", // Use verified Auth phone
+          service: _selectedService,
+          date: _selectedDate,
+          clinicId: _selectedClinic!.id,
+          patientId: currentUser.uid, // Pass their own Auth ID
         );
       }
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-                content: Text(widget.isAssistant ? "Walk-in Added Successfully" : "Appointment Requested!"),
+                content: Text(widget.isAssistant ? "Appointment Assigned!" : "Appointment Requested!"),
                 backgroundColor: AppColors.success
             )
         );
@@ -131,7 +172,7 @@ class _UnifiedBookingViewState extends State<UnifiedBookingView> {
       extendBodyBehindAppBar: true,
       appBar: AppBar(
         title: Text(
-            widget.isAssistant ? "WALK-IN APPOINTMENT" : "NEW APPOINTMENT",
+            widget.isAssistant ? "WALK-IN / BOOKING" : "NEW APPOINTMENT",
             style: const TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1.5, fontSize: 13)
         ),
         centerTitle: true,
@@ -140,10 +181,7 @@ class _UnifiedBookingViewState extends State<UnifiedBookingView> {
       ),
       body: Stack(
         children: [
-          // 1. Background
           Container(color: AppColors.background),
-
-          // 2. Blur Effects
           BackgroundBlur(
             color: AppColors.primary.withOpacity(0.12),
             size: 320,
@@ -163,13 +201,11 @@ class _UnifiedBookingViewState extends State<UnifiedBookingView> {
                 padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
                 child: Form(
                   key: _formKey,
-                  // 3. Main Form Card
                   child: GlassCard(
                     padding: const EdgeInsets.all(32),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Clinic Dropdown (Only for Patients)
                         if (!widget.isAssistant) ...[
                           _buildSectionHeader("CLINIC SELECTION"),
                           _buildClinicDropdown(queue),
@@ -177,13 +213,18 @@ class _UnifiedBookingViewState extends State<UnifiedBookingView> {
                         ],
 
                         _buildSectionHeader("PATIENT DETAILS"),
-                        _buildTextField(
-                            _phoneController,
-                            "Phone Number",
-                            isPhone: true,
-                            icon: Icons.phone_iphone_rounded
-                        ),
-                        const SizedBox(height: 16),
+
+                        // ONLY show phone number field if Assistant is booking
+                        if (widget.isAssistant) ...[
+                          _buildTextField(
+                              _phoneController,
+                              "Phone Number",
+                              isPhone: true,
+                              icon: Icons.phone_iphone_rounded
+                          ),
+                          const SizedBox(height: 16),
+                        ],
+
                         _buildTextField(
                             _nameController,
                             "Patient Full Name",
@@ -193,14 +234,10 @@ class _UnifiedBookingViewState extends State<UnifiedBookingView> {
 
                         _buildSectionHeader("VISIT INFORMATION"),
                         _buildServiceDropdown(),
+                        const SizedBox(height: 16),
 
-                        // Date Picker (Only for Patients)
-                        // Assistants usually book for "Now", but if your logic allows future walk-ins, keep this.
-                        // Based on controller, Assistant addWalkIn usually forces "Now".
-                        if (!widget.isAssistant) ...[
-                          const SizedBox(height: 16),
-                          _buildDatePickerTile(),
-                        ],
+                        // Date picker is now available for BOTH Patient and Assistant
+                        _buildDatePickerTile(),
 
                         const SizedBox(height: 40),
                         _buildSubmitButton(),
@@ -215,8 +252,6 @@ class _UnifiedBookingViewState extends State<UnifiedBookingView> {
       ),
     );
   }
-
-  // --- UI Component Helpers ---
 
   Widget _buildTextField(TextEditingController controller, String hint, {bool isPhone = false, required IconData icon}) {
     return TextFormField(
@@ -323,7 +358,7 @@ class _UnifiedBookingViewState extends State<UnifiedBookingView> {
         child: _isLoading
             ? const SizedBox(height: 24, width: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3))
             : Text(
-            widget.isAssistant ? "ADD WALK-IN" : "CONFIRM APPOINTMENT",
+            widget.isAssistant ? "CONFIRM APPOINTMENT" : "CONFIRM APPOINTMENT",
             style: const TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1.2, fontSize: 14)
         ),
       ),
@@ -361,7 +396,7 @@ class _UnifiedBookingViewState extends State<UnifiedBookingView> {
           style: const TextStyle(
               fontSize: 10,
               fontWeight: FontWeight.w900,
-              color: Color(0xFF94A3B8), // Slate-400 equivalent
+              color: Color(0xFF94A3B8),
               letterSpacing: 1.8
           )
       ),

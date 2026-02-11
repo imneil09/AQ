@@ -85,7 +85,7 @@ Next Visit: ${_nextVisitDate != null ? DateFormat('dd MMM yyyy').format(_nextVis
       final queue = Provider.of<QueueController>(context, listen: false);
       await queue.completeAppointment(
         appointmentId: widget.patient.id,
-        patientId: widget.patient.userId ?? widget.patient.phoneNumber, // Fallback to phone if ID missing
+        patientId: widget.patient.patientId ?? widget.patient.phoneNumber, // Fallback to phone if ID missing
         medicines: formattedMedicines,
         notes: fullNotes,
         diagnosis: _diagnosisCtrl.text,
@@ -356,7 +356,7 @@ Next Visit: ${_nextVisitDate != null ? DateFormat('dd MMM yyyy').format(_nextVis
   // --- TAB 2: HISTORY VIEW (WIRED) ---
   Widget _buildHistoryView() {
     // Queries prescriptions where the patientId matches the current patient
-    final queryId = widget.patient.userId ?? widget.patient.phoneNumber;
+    final queryId = widget.patient.patientId ?? widget.patient.phoneNumber;
 
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance

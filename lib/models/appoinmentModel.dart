@@ -7,11 +7,11 @@ class Appointment {
   final String id;
   final String clinicId;
   final String doctorId;
-  final String? userId; // Links to UserModel (Patient ID)
+  final String patientId; // FIXED: Changed from userId to patientId to match QueueController and Auth merge logic
   final String customerName;
   final String phoneNumber;
   final String serviceType;
-  final String type; // "live" or "appointment"
+  final String type; // "live", "walk-in", or "prebook"
   final DateTime appointmentDate;
   final DateTime bookingTimestamp;
   final int tokenNumber;
@@ -22,7 +22,7 @@ class Appointment {
     required this.id,
     required this.clinicId,
     required this.doctorId,
-    this.userId,
+    required this.patientId, // FIXED: Made required to enforce shadow account logic
     required this.customerName,
     required this.phoneNumber,
     required this.serviceType,
@@ -38,7 +38,7 @@ class Appointment {
     return {
       'clinicId': clinicId,
       'doctorId': doctorId,
-      'userId': userId,
+      'patientId': patientId, // FIXED
       'customerName': customerName,
       'phoneNumber': phoneNumber,
       'serviceType': serviceType,
@@ -51,6 +51,7 @@ class Appointment {
   }
 
   factory Appointment.fromMap(Map<String, dynamic> map, String docId) {
+    // Excellent helper function you added!
     DateTime toDateTime(dynamic val) {
       if (val is Timestamp) return val.toDate();
       if (val is String) return DateTime.tryParse(val) ?? DateTime.now();
@@ -61,7 +62,7 @@ class Appointment {
       id: docId,
       clinicId: map['clinicId'] ?? '',
       doctorId: map['doctorId'] ?? '',
-      userId: map['userId'],
+      patientId: map['patientId'] ?? map['userId'] ?? '', // FIXED: Fallback to userId just in case you have old test data
       customerName: map['customerName'] ?? 'Unknown',
       phoneNumber: map['phoneNumber'] ?? '',
       serviceType: map['serviceType'] ?? 'General',
