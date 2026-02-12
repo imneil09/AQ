@@ -2,17 +2,19 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-// DRY Widgets & Constants
+// UI Components
 import '../../widgets/appColors.dart';
 import '../../widgets/backgroundBlur.dart';
 import '../../widgets/glassCard.dart';
+import '../../widgets/appointment.dart';
+
+// Logic & Models
 import '../../controllers/queueController.dart';
 import '../../models/appoinmentModel.dart';
-import '../../widgets/appointment.dart';
 import '../history.dart';
 import '../unifiedBooking.dart';
 import 'createClinic.dart';
-import 'scheduledAppointments.dart'; // We will create this file next
+import 'scheduledAppointments.dart';
 import '../auth.dart';
 
 class AssistantHomeView extends StatefulWidget {
@@ -40,21 +42,29 @@ class _AssistantHomeViewState extends State<AssistantHomeView>
 
   // --- ACTIONS ---
 
-  void _handleLogout(BuildContext context, QueueController queue) async {
+  Future<void> _handleLogout(BuildContext context, QueueController queue) async {
     await queue.logout();
     if (context.mounted) {
       Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (_) => const AuthView()),
-              (route) => false);
+        MaterialPageRoute(builder: (_) => const AuthView()),
+            (route) => false,
+      );
     }
   }
 
-  void _handleEmergencyClose(BuildContext context, QueueController queue) async {
+  Future<void> _handleEmergencyClose(
+      BuildContext context,
+      QueueController queue,
+      ) async {
     final confirm = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder:
+          (ctx) => AlertDialog(
         backgroundColor: AppColors.surface,
-        title: const Text("Emergency Close?", style: TextStyle(color: Colors.white)),
+        title: const Text(
+          "Emergency Close?",
+          style: TextStyle(color: Colors.white),
+        ),
         content: const Text(
           "This will CANCEL all waiting appointments for today. This action cannot be undone.",
           style: TextStyle(color: Colors.white70),
@@ -62,11 +72,20 @@ class _AssistantHomeViewState extends State<AssistantHomeView>
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text("CANCEL", style: TextStyle(color: Colors.white54)),
+            child: const Text(
+              "CANCEL",
+              style: TextStyle(color: Colors.white54),
+            ),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text("CLOSE CLINIC", style: TextStyle(color: AppColors.error, fontWeight: FontWeight.bold)),
+            child: const Text(
+              "CLOSE CLINIC",
+              style: TextStyle(
+                color: AppColors.error,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ),
         ],
       ),
@@ -77,19 +96,20 @@ class _AssistantHomeViewState extends State<AssistantHomeView>
     }
   }
 
+  // --- BUILD METHOD ---
+
   @override
   Widget build(BuildContext context) {
     final queue = Provider.of<QueueController>(context);
+    final bool hasClinics = queue.clinics.isNotEmpty;
 
     return Scaffold(
       extendBodyBehindAppBar: true,
-      appBar: _buildAppBar(queue),
+      appBar: _buildAppBar(context, queue),
       body: Stack(
         children: [
-          // 1. Background
+          // Background Layer
           Container(color: AppColors.background),
-
-          // 2. Ambient Blurs
           BackgroundBlur(
             color: AppColors.primary.withOpacity(0.2),
             size: 300,
@@ -103,22 +123,23 @@ class _AssistantHomeViewState extends State<AssistantHomeView>
             left: -80,
           ),
 
-          // 3. Main Content
+          // Content Layer
           SafeArea(
-            child: queue.clinics.isEmpty
+            child:
+            !hasClinics
                 ? _buildEmptyState()
                 : Column(
               children: [
                 _buildMetricsHeader(queue),
                 _buildSearchBar(queue),
-                _buildCustomTabBar(queue),
+                _buildTabBar(queue),
                 Expanded(
                   child: TabBarView(
                     controller: _tabController,
                     children: [
-                      _buildList(queue, queue.waitingList), // Tab 1
-                      _buildList(queue, queue.activeQueue), // Tab 2
-                      _buildList(queue, queue.skippedList), // Tab 3
+                      _buildAppointmentList(queue, queue.waitingList),
+                      _buildAppointmentList(queue, queue.activeQueue),
+                      _buildAppointmentList(queue, queue.skippedList),
                     ],
                   ),
                 ),
@@ -127,17 +148,22 @@ class _AssistantHomeViewState extends State<AssistantHomeView>
           ),
         ],
       ),
-      floatingActionButton: queue.clinics.isNotEmpty
+      floatingActionButton:
+      hasClinics
           ? FloatingActionButton.extended(
-        onPressed: () => Navigator.push(
+        onPressed:
+            () => Navigator.push(
           context,
           MaterialPageRoute(
-              builder: (_) =>
-              const UnifiedBookingView(isAssistant: true)),
+            builder: (_) => const UnifiedBookingView(isAssistant: true),
+          ),
         ),
         label: const Text(
           "WALK-IN",
-          style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1.2),
+          style: TextStyle(
+            fontWeight: FontWeight.w900,
+            letterSpacing: 1.2,
+          ),
         ),
         icon: const Icon(Icons.add_rounded),
         backgroundColor: AppColors.primary,
@@ -146,52 +172,35 @@ class _AssistantHomeViewState extends State<AssistantHomeView>
     );
   }
 
-  PreferredSizeWidget _buildAppBar(QueueController queue) {
+  // --- APP BAR ---
+
+  PreferredSizeWidget _buildAppBar(BuildContext context, QueueController queue) {
     return AppBar(
       backgroundColor: Colors.transparent,
       elevation: 0,
-      title: queue.clinics.isEmpty
-          ? const Text("Dashboard", style: TextStyle(fontWeight: FontWeight.w900))
+      title:
+      queue.clinics.isEmpty
+          ? const Text(
+        "Dashboard",
+        style: TextStyle(fontWeight: FontWeight.w900),
+      )
           : Row(
         children: [
-          Expanded(
-            child: DropdownButtonHideUnderline(
-              child: DropdownButton<String>(
-                value: queue.selectedClinic?.id,
-                dropdownColor: AppColors.surface,
-                isExpanded: true,
-                style: const TextStyle(
-                    color: Colors.white, fontWeight: FontWeight.bold),
-                items: queue.clinics.map((clinic) {
-                  return DropdownMenuItem<String>(
-                    value: clinic.id,
-                    child: Text(
-                      clinic.name,
-                      overflow: TextOverflow.ellipsis,
-                      maxLines: 1,
-                    ),
-                  );
-                }).toList(),
-                onChanged: (clinicId) {
-                  if (clinicId != null) {
-                    final selected =
-                    queue.clinics.firstWhere((c) => c.id == clinicId);
-                    queue.selectClinic(selected);
-                  }
-                },
-              ),
-            ),
-          ),
-          // Edit Clinic
+          Expanded(child: _buildClinicDropdown(queue)),
           IconButton(
-            icon: const Icon(Icons.edit_note_rounded, color: Colors.white70),
+            icon: const Icon(
+              Icons.edit_note_rounded,
+              color: Colors.white70,
+            ),
             onPressed: () {
               if (queue.selectedClinic != null) {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (_) =>
-                        CreateClinicView(clinic: queue.selectedClinic),
+                    builder:
+                        (_) => CreateClinicView(
+                      clinic: queue.selectedClinic,
+                    ),
                   ),
                 );
               }
@@ -200,100 +209,152 @@ class _AssistantHomeViewState extends State<AssistantHomeView>
         ],
       ),
       actions: [
-        // Create New Clinic (Kept visible as requested)
         IconButton(
           icon: const Icon(Icons.add_business_rounded, color: Colors.white70),
-          onPressed: () => Navigator.push(
+          onPressed:
+              () => Navigator.push(
             context,
             MaterialPageRoute(builder: (_) => const CreateClinicView()),
           ),
         ),
-        // Consolidated Menu (Schedule, History, Close, Logout)
-        PopupMenuButton<String>(
-          icon: const Icon(Icons.more_vert_rounded, color: Colors.white),
-          color: AppColors.surface,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          onSelected: (value) {
-            if (value == 'schedule') {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const ScheduledAppointmentsView()),
-              );
-            }
-            if (value == 'history') {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const HistoryView(isAdmin: true)),
-              );
-            }
-            if (value == 'close') _handleEmergencyClose(context, queue);
-            if (value == 'logout') _handleLogout(context, queue);
-          },
-          itemBuilder: (context) => [
-            const PopupMenuItem(
-              value: 'schedule',
-              child: Row(
-                children: [
-                  Icon(Icons.calendar_month, color: AppColors.primary, size: 20),
-                  SizedBox(width: 12),
-                  Text("Scheduled Appointments", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                ],
-              ),
-            ),
-            const PopupMenuItem(
-              value: 'history',
-              child: Row(
-                children: [
-                  Icon(Icons.work_history_outlined, color: Colors.white70, size: 20),
-                  SizedBox(width: 12),
-                  Text("Consultation History", style: TextStyle(color: Colors.white)),
-                ],
-              ),
-            ),
-            const PopupMenuDivider(height: 1),
-            const PopupMenuItem(
-              value: 'close',
-              child: Row(
-                children: [
-                  Icon(Icons.warning_outlined, color: AppColors.error, size: 20),
-                  SizedBox(width: 12),
-                  Text("Emergency Close", style: TextStyle(color: AppColors.error)),
-                ],
-              ),
-            ),
-            const PopupMenuItem(
-              value: 'logout',
-              child: Row(
-                children: [
-                  Icon(Icons.power_settings_new_rounded, color: AppColors.error, size: 20),
-                  SizedBox(width: 12),
-                  Text("Logout", style: TextStyle(color: AppColors.error)),
-                ],
-              ),
-            ),
-          ],
-        ),
+        _buildPopupMenu(context, queue),
         const SizedBox(width: 8),
       ],
     );
   }
 
+  Widget _buildClinicDropdown(QueueController queue) {
+    return DropdownButtonHideUnderline(
+      child: DropdownButton<String>(
+        value: queue.selectedClinic?.id,
+        dropdownColor: AppColors.surface,
+        isExpanded: true,
+        style: const TextStyle(
+          color: Colors.white,
+          fontWeight: FontWeight.bold,
+        ),
+        items:
+        queue.clinics.map((clinic) {
+          return DropdownMenuItem<String>(
+            value: clinic.id,
+            child: Text(
+              clinic.name,
+              overflow: TextOverflow.ellipsis,
+              maxLines: 1,
+            ),
+          );
+        }).toList(),
+        onChanged: (clinicId) {
+          if (clinicId != null) {
+            final selected = queue.clinics.firstWhere((c) => c.id == clinicId);
+            queue.selectClinic(selected);
+          }
+        },
+      ),
+    );
+  }
+
+  Widget _buildPopupMenu(BuildContext context, QueueController queue) {
+    return PopupMenuButton<String>(
+      icon: const Icon(Icons.more_vert_rounded, color: Colors.white),
+      color: AppColors.surface,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      onSelected: (value) {
+        switch (value) {
+          case 'schedule':
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const ScheduledAppointmentsView(),
+              ),
+            );
+            break;
+          case 'history':
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const HistoryView(isAdmin: true),
+              ),
+            );
+            break;
+          case 'close':
+            _handleEmergencyClose(context, queue);
+            break;
+          case 'logout':
+            _handleLogout(context, queue);
+            break;
+        }
+      },
+      itemBuilder:
+          (context) => [
+        _buildPopupItem(
+          'schedule',
+          Icons.calendar_month,
+          "Scheduled Appointments",
+          AppColors.primary,
+        ),
+        _buildPopupItem(
+          'history',
+          Icons.work_history_outlined,
+          "Consultation History",
+          Colors.white,
+        ),
+        const PopupMenuDivider(height: 1),
+        _buildPopupItem(
+          'close',
+          Icons.warning_outlined,
+          "Emergency Close",
+          AppColors.error,
+        ),
+        _buildPopupItem(
+          'logout',
+          Icons.power_settings_new_rounded,
+          "Logout",
+          AppColors.error,
+        ),
+      ],
+    );
+  }
+
+  PopupMenuItem<String> _buildPopupItem(
+      String value,
+      IconData icon,
+      String text,
+      Color color,
+      ) {
+    return PopupMenuItem(
+      value: value,
+      child: Row(
+        children: [
+          Icon(icon, color: color, size: 20),
+          const SizedBox(width: 12),
+          Text(text, style: TextStyle(color: color)),
+        ],
+      ),
+    );
+  }
+
+  // --- HEADER & METRICS ---
+
   Widget _buildMetricsHeader(QueueController queue) {
-    final completedCount = queue.history
-        .where((e) => e.status == AppointmentStatus.completed)
-        .length;
-    final cancelledCount = queue.history
-        .where((e) => e.status == AppointmentStatus.cancelled)
-        .length;
+    // Calculate metrics strictly from history to avoid mismatches
+    final completedCount =
+        queue.history
+            .where((e) => e.status == AppointmentStatus.completed)
+            .length;
+    final cancelledCount =
+        queue.history
+            .where((e) => e.status == AppointmentStatus.cancelled)
+            .length;
 
     return Padding(
       padding: const EdgeInsets.all(20),
       child: Row(
         children: [
           _buildMetricCard(
-            "PENDING",
+            "CANCELLED",
             cancelledCount.toString(),
-            Icons.pending_outlined,
+            Icons.cancel_outlined,
             accentColor: AppColors.error,
           ),
           const SizedBox(width: 16),
@@ -308,8 +369,12 @@ class _AssistantHomeViewState extends State<AssistantHomeView>
     );
   }
 
-  Widget _buildMetricCard(String label, String value, IconData icon,
-      {required Color accentColor}) {
+  Widget _buildMetricCard(
+      String label,
+      String value,
+      IconData icon, {
+        required Color accentColor,
+      }) {
     return Expanded(
       child: GlassCard(
         radius: 24,
@@ -319,22 +384,30 @@ class _AssistantHomeViewState extends State<AssistantHomeView>
           children: [
             Icon(icon, color: accentColor, size: 20),
             const SizedBox(height: 12),
-            Text(value,
-                style: const TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.w900,
-                    color: Colors.white)),
-            Text(label,
-                style: const TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w900,
-                    color: Colors.white38,
-                    letterSpacing: 1.2)),
+            Text(
+              value,
+              style: const TextStyle(
+                fontSize: 28,
+                fontWeight: FontWeight.w900,
+                color: Colors.white,
+              ),
+            ),
+            Text(
+              label,
+              style: const TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w900,
+                color: Colors.white38,
+                letterSpacing: 1.2,
+              ),
+            ),
           ],
         ),
       ),
     );
   }
+
+  // --- SEARCH & TABS ---
 
   Widget _buildSearchBar(QueueController queue) {
     return Container(
@@ -347,10 +420,13 @@ class _AssistantHomeViewState extends State<AssistantHomeView>
       ),
       child: TextField(
         onChanged: (val) => queue.updateLiveSearch(val),
-        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        style: const TextStyle(
+          color: Colors.white,
+          fontWeight: FontWeight.bold,
+        ),
         decoration: const InputDecoration(
           border: InputBorder.none,
-          hintText: "Search",
+          hintText: "Search patient name or token...",
           hintStyle: TextStyle(color: Colors.white38, fontSize: 13),
           icon: Icon(Icons.search_rounded, color: Colors.white38, size: 20),
         ),
@@ -358,7 +434,7 @@ class _AssistantHomeViewState extends State<AssistantHomeView>
     );
   }
 
-  Widget _buildCustomTabBar(QueueController queue) {
+  Widget _buildTabBar(QueueController queue) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
       padding: const EdgeInsets.all(8),
@@ -386,7 +462,9 @@ class _AssistantHomeViewState extends State<AssistantHomeView>
     );
   }
 
-  Widget _buildList(QueueController queue, List<Appointment> list) {
+  // --- APPOINTMENT LIST ---
+
+  Widget _buildAppointmentList(QueueController queue, List<Appointment> list) {
     if (list.isEmpty) {
       return Center(
         child: Column(
@@ -394,13 +472,18 @@ class _AssistantHomeViewState extends State<AssistantHomeView>
           children: [
             Icon(Icons.inbox_rounded, size: 64, color: AppColors.glassWhite),
             const SizedBox(height: 16),
-            const Text("No patients here",
-                style: TextStyle(
-                    color: Colors.white24, fontWeight: FontWeight.bold)),
+            const Text(
+              "No patients in this list",
+              style: TextStyle(
+                color: Colors.white24,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ],
         ),
       );
     }
+
     return ListView.builder(
       padding: const EdgeInsets.all(16),
       itemCount: list.length,
@@ -409,22 +492,19 @@ class _AssistantHomeViewState extends State<AssistantHomeView>
         return AppointmentCard(
           appointment: appt,
           isAdmin: true,
-          // --- BACKEND WIRING START ---
           onStatusNext: () {
+            // Intelligent status progression
             if (appt.status == AppointmentStatus.skipped) {
-              // Skipped -> Waiting (Recall)
               queue.recallPatient(appt.id);
             } else if (appt.status == AppointmentStatus.waiting) {
-              // Waiting -> Active (Call Next)
               queue.updateStatus(appt.id, AppointmentStatus.active);
             } else if (appt.status == AppointmentStatus.active) {
-              // Active -> Completed (Finish)
               queue.updateStatus(appt.id, AppointmentStatus.completed);
             }
           },
           onSkip: () => queue.updateStatus(appt.id, AppointmentStatus.skipped),
-          onCancel: () => queue.updateStatus(appt.id, AppointmentStatus.cancelled),
-          // --- BACKEND WIRING END ---
+          onCancel:
+              () => queue.updateStatus(appt.id, AppointmentStatus.cancelled),
         );
       },
     );
@@ -435,10 +515,19 @@ class _AssistantHomeViewState extends State<AssistantHomeView>
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.add_business_rounded, size: 80, color: AppColors.glassWhite),
+          Icon(
+            Icons.add_business_rounded,
+            size: 80,
+            color: AppColors.glassWhite,
+          ),
           const SizedBox(height: 16),
-          const Text("No clinics found. Create one to begin.",
-              style: TextStyle(color: Colors.white38, fontWeight: FontWeight.w600)),
+          const Text(
+            "No clinics found. Create one to begin.",
+            style: TextStyle(
+              color: Colors.white38,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
         ],
       ),
     );

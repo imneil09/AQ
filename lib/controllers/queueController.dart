@@ -30,6 +30,7 @@ class QueueController extends ChangeNotifier {
   String get liveSearchQuery => _liveSearchQuery;
   String get historySearchQuery => _historySearchQuery;
   bool get isOnBreak => _isOnBreak;
+  String get currentUserId => _auth.currentUser?.uid ?? '';
   List<Appointment> get history => _todayQueue; // Full list for metrics
 
   QueueController() {
@@ -74,10 +75,25 @@ class QueueController extends ChangeNotifier {
               .map((doc) => Clinic.fromMap(doc.data(), doc.id))
               .toList();
 
-      // Auto-select first clinic if none selected (useful for single-doctor apps)
-      if (selectedClinic == null && clinics.isNotEmpty) {
+      // --- CRITICAL FIX START ---
+      // If we have a selected clinic, we MUST refresh it with the new data from the list
+      if (selectedClinic != null) {
+        try {
+          // Find the updated version of the currently selected clinic
+          selectedClinic = clinics.firstWhere(
+            (c) => c.id == selectedClinic!.id,
+          );
+        } catch (e) {
+          // If the selected clinic was deleted, default to the first one available
+          selectedClinic = clinics.isNotEmpty ? clinics.first : null;
+        }
+      }
+      // Initial Auto-select logic
+      else if (clinics.isNotEmpty) {
         selectClinic(clinics.first);
       }
+      // --- CRITICAL FIX END ---
+
       notifyListeners();
     });
   }
@@ -235,13 +251,9 @@ class QueueController extends ChangeNotifier {
     required DateTime date,
     required String clinicId,
     required String patientId,
+    bool isStaff = false, // Added parameter
   }) async {
     final cleanDate = DateTime(date.year, date.month, date.day);
-
-    // Check if the person booking is Staff (Assistant/Doctor use Email, Patients use Phone)
-    bool isStaff =
-        _auth.currentUser?.email != null &&
-        _auth.currentUser!.email!.isNotEmpty;
 
     // --- VALIDATION START ---
     if (selectedClinic != null) {
@@ -253,14 +265,16 @@ class QueueController extends ChangeNotifier {
             d.day == cleanDate.day,
       );
 
-      if (isEmergencyClosed) {
+      if (isEmergencyClosed && !isStaff) {
+        // Allow staff to override
         throw "Clinic is closed on this date.";
       }
 
       // 2. Check Weekly Schedule
       String dayName = DateFormat('EEEE').format(cleanDate);
       final schedule = selectedClinic!.weeklySchedule[dayName];
-      if (schedule == null || !schedule.isOpen) {
+      if ((schedule == null || !schedule.isOpen) && !isStaff) {
+        // Allow staff to override
         throw "Clinic is closed on $dayName.";
       }
     }
@@ -299,6 +313,7 @@ class QueueController extends ChangeNotifier {
           String dayName = DateFormat('EEEE').format(cleanDate);
           final schedule = selectedClinic!.weeklySchedule[dayName];
           if (schedule != null && nextToken > schedule.maxAppointmentsPerDay) {
+            // Throwing a string here aborts the transaction and sends a clean message to the UI
             throw "Fully booked! Maximum limit of ${schedule.maxAppointmentsPerDay} patients reached for this date.";
           }
         }
@@ -321,6 +336,7 @@ class QueueController extends ChangeNotifier {
           'phoneNumber': phone,
           'serviceType': service,
           'type': isToday ? 'walk-in' : 'prebook',
+          'bookedBy': isStaff ? 'desk' : 'app', // Track source
           'appointmentDate': Timestamp.fromDate(cleanDate),
           'bookingTimestamp': FieldValue.serverTimestamp(),
           'tokenNumber': nextToken,
@@ -335,6 +351,7 @@ class QueueController extends ChangeNotifier {
       });
     } catch (e) {
       debugPrint("Error booking appointment: $e");
+      // Rethrow to let the UI catch it and show the SnackBar
       rethrow;
     }
   }
@@ -468,57 +485,37 @@ class QueueController extends ChangeNotifier {
 
   Stream<List<Appointment>> get patientHistory {
     final user = _auth.currentUser;
-    // For patients: safely query by explicit patientId to capture merges
     if (user == null) return Stream.value([]);
 
+    // 1. Fetch RAW history for the patient (Completed or Cancelled)
     return _db
         .collection('appointments')
         .where('patientId', isEqualTo: user.uid)
         .orderBy('appointmentDate', descending: true)
         .snapshots()
-        .map((snap) {
-          final list =
+        .map(
+          (snap) =>
               snap.docs
                   .map((d) => Appointment.fromMap(d.data(), d.id))
-                  .toList();
-          if (_historySearchQuery.isEmpty) return list;
-          return list
-              .where(
-                (a) =>
-                    a.customerName.toLowerCase().contains(
-                      _historySearchQuery,
-                    ) ||
-                    a.serviceType.toLowerCase().contains(_historySearchQuery),
-              )
-              .toList();
-        });
+                  .toList(),
+        );
   }
 
   Stream<List<Appointment>> get assistantFullHistory {
     if (selectedClinic == null) return Stream.value([]);
 
+    // 1. Fetch RAW history for the clinic
     return _db
         .collection('appointments')
         .where('clinicId', isEqualTo: selectedClinic!.id)
         .orderBy('appointmentDate', descending: true)
         .snapshots()
-        .map((snap) {
-          final list =
+        .map(
+          (snap) =>
               snap.docs
                   .map((d) => Appointment.fromMap(d.data(), d.id))
-                  .toList();
-          if (_historySearchQuery.isEmpty) return list;
-          return list
-              .where(
-                (a) =>
-                    a.customerName.toLowerCase().contains(
-                      _historySearchQuery,
-                    ) ||
-                    a.phoneNumber.contains(_historySearchQuery) ||
-                    a.tokenNumber.toString().contains(_historySearchQuery),
-              )
-              .toList();
-        });
+                  .toList(),
+        );
   }
 
   Appointment? get myAppointment {
@@ -557,6 +554,7 @@ class QueueController extends ChangeNotifier {
               .toList();
         });
   }
+
   // --- PATIENT: UPCOMING APPOINTMENTS ---
   Stream<List<Appointment>> get myUpcomingAppointments {
     final user = _auth.currentUser;
@@ -573,15 +571,21 @@ class QueueController extends ChangeNotifier {
         .where('status', whereIn: ['waiting', 'active', 'skipped'])
         .snapshots()
         .map((snap) {
-      var list = snap.docs.map((d) => Appointment.fromMap(d.data(), d.id)).toList();
+          var list =
+              snap.docs
+                  .map((d) => Appointment.fromMap(d.data(), d.id))
+                  .toList();
 
-      // Only keep appointments for Today or the Future
-      list = list.where((a) => !a.appointmentDate.isBefore(todayStart)).toList();
+          // Only keep appointments for Today or the Future
+          list =
+              list
+                  .where((a) => !a.appointmentDate.isBefore(todayStart))
+                  .toList();
 
-      // Sort them so the closest appointment shows up first
-      list.sort((a, b) => a.appointmentDate.compareTo(b.appointmentDate));
+          // Sort them so the closest appointment shows up first
+          list.sort((a, b) => a.appointmentDate.compareTo(b.appointmentDate));
 
-      return list;
-    });
+          return list;
+        });
   }
 }

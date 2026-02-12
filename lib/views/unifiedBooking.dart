@@ -36,12 +36,16 @@ class _UnifiedBookingViewState extends State<UnifiedBookingView> {
     super.initState();
     final queue = Provider.of<QueueController>(context, listen: false);
 
+    // Default to current time for everyone
+    _selectedDate = DateTime.now();
+
     if (widget.isAssistant) {
       _selectedClinic = queue.selectedClinic;
-      _selectedDate = DateTime.now(); // Assistants default to booking for Today
-    } else {
-      // Patients must book starting from Tomorrow
-      _selectedDate = DateTime.now().add(const Duration(days: 1));
+    }
+    // If a clinic is already selected (Assistant) or auto-selected,
+    // adjust the date to the first valid opening immediately.
+    if (_selectedClinic != null) {
+      _selectedDate = _getInitialValidDate(_selectedClinic!, DateTime.now());
     }
   }
 
@@ -52,8 +56,29 @@ class _UnifiedBookingViewState extends State<UnifiedBookingView> {
     super.dispose();
   }
 
+  // Helper: Finds the first day the clinic is actually open starting from 'startDate'
+  DateTime _getInitialValidDate(Clinic clinic, DateTime startDate) {
+    DateTime date = startDate;
+    // Look ahead up to 30 days to find the next open slot
+    for (int i = 0; i < 30; i++) {
+      String dayName = DateFormat('EEEE').format(date);
+      bool isOpen = clinic.weeklySchedule[dayName]?.isOpen ?? false;
+
+      // Check for emergency closure
+      bool isEmergencyClosed = clinic.emergencyClosedDates.any((d) =>
+      d.year == date.year && d.month == date.month && d.day == date.day);
+
+      // If it's open and not emergency closed, this is our date!
+      if (isOpen && !isEmergencyClosed) {
+        return date;
+      }
+      // Otherwise, check the next day
+      date = date.add(const Duration(days: 1));
+    }
+    return startDate; // Fallback
+  }
+
   Future<void> _pickDate() async {
-    // For patients, they MUST select a clinic first before they can pick a date
     if (!widget.isAssistant && _selectedClinic == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -65,29 +90,20 @@ class _UnifiedBookingViewState extends State<UnifiedBookingView> {
     }
 
     final DateTime now = DateTime.now();
-    // Assistants can pick from today onwards. Patients pick from tomorrow onwards.
-    final DateTime firstDate = widget.isAssistant ? now : now.add(const Duration(days: 1));
 
-    // Safety fix: Prevents Flutter crash if selectedDate falls behind firstDate
-    DateTime initialDate = _selectedDate.isBefore(firstDate) ? firstDate : _selectedDate;
+    // UPDATED: Patients can now book starting from Today (if open/not full)
+    final DateTime firstDate = now;
 
-    // Safety check: Ensure initialDate itself is a valid selectable day!
-    // If the clinic is closed on 'initialDate', the DatePicker will crash on load.
+    // Ensure our picker doesn't start in the past
+    DateTime initialDate = _selectedDate;
+    if (initialDate.isBefore(firstDate)) {
+      initialDate = firstDate;
+    }
+
+    // Smartly jump to the first open day to avoid crashing the picker if Today is closed
     if (_selectedClinic != null) {
-      String initialDayName = DateFormat('EEEE').format(initialDate);
-      bool isOpenOnInitialDate = _selectedClinic!.weeklySchedule[initialDayName]?.isOpen ?? false;
-
-      // If the default day is closed, scan forward up to 7 days to find an open day to start on
-      if (!isOpenOnInitialDate) {
-        for (int i = 1; i <= 7; i++) {
-          DateTime nextDay = initialDate.add(Duration(days: i));
-          String nextDayName = DateFormat('EEEE').format(nextDay);
-          if (_selectedClinic!.weeklySchedule[nextDayName]?.isOpen ?? false) {
-            initialDate = nextDay;
-            break;
-          }
-        }
-      }
+      // We start checking availability from 'initialDate' (which is usually Today)
+      initialDate = _getInitialValidDate(_selectedClinic!, initialDate);
     }
 
     final DateTime? picked = await showDatePicker(
@@ -98,16 +114,15 @@ class _UnifiedBookingViewState extends State<UnifiedBookingView> {
       selectableDayPredicate: (DateTime d) {
         if (_selectedClinic == null) return true;
 
-        // 1. Check if the clinic has marked this specific date as an Emergency Closed Date
-        final cleanDate = DateTime(d.year, d.month, d.day);
+        // 1. Emergency Closure Check
         bool isEmergencyClosed = _selectedClinic!.emergencyClosedDates.any((closedDate) =>
-        closedDate.year == cleanDate.year &&
-            closedDate.month == cleanDate.month &&
-            closedDate.day == cleanDate.day);
+        closedDate.year == d.year &&
+            closedDate.month == d.month &&
+            closedDate.day == d.day);
 
         if (isEmergencyClosed) return false;
 
-        // 2. Check the regular weekly schedule
+        // 2. Weekly Schedule Check
         String dayName = DateFormat('EEEE').format(d);
         return _selectedClinic!.weeklySchedule[dayName]?.isOpen ?? false;
       },
@@ -138,10 +153,13 @@ class _UnifiedBookingViewState extends State<UnifiedBookingView> {
     try {
       if (widget.isAssistant) {
         // --- BACKEND: ASSISTANT LOGIC (SHADOW ACCOUNTS) ---
+        // Assistant privilege is handled in QueueController:
+        // They bypass the "Max Patients" check automatically.
+
         final phone = "+91${_phoneController.text.trim()}";
         final name = _nameController.text.trim();
 
-        // 1. Check if user already exists by Phone Number
+        // 1. Check if user already exists
         final usersSnapshot = await FirebaseFirestore.instance
             .collection('users')
             .where('phoneNumber', isEqualTo: phone)
@@ -150,10 +168,8 @@ class _UnifiedBookingViewState extends State<UnifiedBookingView> {
 
         String targetPatientId;
         if (usersSnapshot.docs.isNotEmpty) {
-          // User exists! Use their existing account ID
           targetPatientId = usersSnapshot.docs.first.id;
         } else {
-          // User does not exist! Create a Shadow Account without OTP
           final newDocRef = FirebaseFirestore.instance.collection('users').doc();
           targetPatientId = newDocRef.id;
 
@@ -167,28 +183,29 @@ class _UnifiedBookingViewState extends State<UnifiedBookingView> {
           });
         }
 
-        // 2. Book appointment and assign it to the target user
         await queue.bookAppointment(
           name: name,
           phone: phone,
           service: _selectedService,
           date: _selectedDate,
           clinicId: _selectedClinic!.id,
-          patientId: targetPatientId, // Pass the explicit ID
+          patientId: targetPatientId,
         );
 
       } else {
         // --- BACKEND: PATIENT LOGIC ---
+        // Patients are subject to the "Max Patients" check in QueueController.
+
         final currentUser = FirebaseAuth.instance.currentUser;
         if (currentUser == null) throw Exception("User not logged in");
 
         await queue.bookAppointment(
           name: _nameController.text.trim(),
-          phone: currentUser.phoneNumber ?? "", // Use verified Auth phone
+          phone: currentUser.phoneNumber ?? "",
           service: _selectedService,
           date: _selectedDate,
           clinicId: _selectedClinic!.id,
-          patientId: currentUser.uid, // Pass their own Auth ID
+          patientId: currentUser.uid,
         );
       }
 
@@ -202,6 +219,8 @@ class _UnifiedBookingViewState extends State<UnifiedBookingView> {
         Navigator.pop(context);
       }
     } catch (e) {
+      // Logic: If QueueController throws "Fully Booked", it is caught here
+      // and displayed to the user as a red error message.
       ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(e.toString()), backgroundColor: AppColors.error)
       );
@@ -259,8 +278,6 @@ class _UnifiedBookingViewState extends State<UnifiedBookingView> {
                         ],
 
                         _buildSectionHeader("PATIENT DETAILS"),
-
-                        // ONLY show phone number field if Assistant is booking
                         if (widget.isAssistant) ...[
                           _buildTextField(
                               _phoneController,
@@ -270,7 +287,6 @@ class _UnifiedBookingViewState extends State<UnifiedBookingView> {
                           ),
                           const SizedBox(height: 16),
                         ],
-
                         _buildTextField(
                             _nameController,
                             "Patient Full Name",
@@ -282,7 +298,6 @@ class _UnifiedBookingViewState extends State<UnifiedBookingView> {
                         _buildServiceDropdown(),
                         const SizedBox(height: 16),
 
-                        // Date picker is now available for BOTH Patient and Assistant
                         _buildDatePickerTile(),
 
                         const SizedBox(height: 40),
@@ -328,10 +343,11 @@ class _UnifiedBookingViewState extends State<UnifiedBookingView> {
       onChanged: (val) {
         setState(() {
           _selectedClinic = val;
-          // Reset the selected date when a new clinic is chosen, to force
-          // the system to find a valid opening date for the newly selected clinic
-          if (!widget.isAssistant) {
-            _selectedDate = DateTime.now().add(const Duration(days: 1));
+          // When a patient changes the clinic, we immediately recalculate the date.
+          // If "Today" is open for this new clinic, select Today.
+          // If closed, select the next open day.
+          if (val != null) {
+            _selectedDate = _getInitialValidDate(val, DateTime.now());
           }
         });
       },
