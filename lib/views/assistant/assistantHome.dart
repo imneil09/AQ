@@ -1,6 +1,7 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:intl/intl.dart';
 
 // UI Components
 import '../../widgets/appColors.dart';
@@ -50,24 +51,57 @@ class _AssistantHomeViewState extends State<AssistantHomeView>
             (route) => false,
       );
     }
-  }
-
-  Future<void> _handleEmergencyClose(
+  }Future<void> _handleEmergency(
       BuildContext context,
       QueueController queue,
       ) async {
+    if (queue.selectedClinic == null) return;
+    final DateTime now = DateTime.now();
+
+    // 1. Ask the assistant to pick a date
+    final DateTime? pickedDate = await showDatePicker(
+      context: context,
+      initialDate: now,
+      firstDate: now,
+      lastDate: now.add(const Duration(days: 365)),
+      builder: (context, child) => Theme(
+        data: ThemeData.dark().copyWith(
+          colorScheme: const ColorScheme.dark(
+            primary: AppColors.primary,
+            surface: AppColors.surface,
+            onSurface: Colors.white,
+          ),
+          dialogBackgroundColor: AppColors.background,
+        ),
+        child: child!,
+      ),
+    );
+
+    if (pickedDate == null) return; // Action cancelled
+    if (!context.mounted) return;
+
+    final dateStr = DateFormat('MMM dd, yyyy').format(pickedDate);
+    final cleanPicked = DateTime(pickedDate.year, pickedDate.month, pickedDate.day);
+
+    // 2. CHECK STATUS: Is this date already closed?
+    bool isAlreadyClosed = queue.selectedClinic!.emergencyClosedDates.any(
+            (d) => d.year == cleanPicked.year && d.month == cleanPicked.month && d.day == cleanPicked.day
+    );
+
+    // 3. Show dynamic confirmation dialog
     final confirm = await showDialog<bool>(
       context: context,
-      builder:
-          (ctx) => AlertDialog(
+      builder: (ctx) => AlertDialog(
         backgroundColor: AppColors.surface,
-        title: const Text(
-          "Emergency Close?",
-          style: TextStyle(color: Colors.white),
+        title: Text(
+          isAlreadyClosed ? "Reopen Clinic on $dateStr?" : "Close Clinic on $dateStr?",
+          style: const TextStyle(color: Colors.white),
         ),
-        content: const Text(
-          "This will CANCEL all waiting appointments for today. This action cannot be undone.",
-          style: TextStyle(color: Colors.white70),
+        content: Text(
+          isAlreadyClosed
+              ? "This will remove the emergency block. Patients will immediately be able to book new appointments for $dateStr via the app.\n\nNote: Previously cancelled appointments will NOT be restored."
+              : "This will CANCEL all pending appointments for $dateStr. Patients will not be able to book for this date via the app. This action cannot be undone.",
+          style: const TextStyle(color: Colors.white70),
         ),
         actions: [
           TextButton(
@@ -79,10 +113,10 @@ class _AssistantHomeViewState extends State<AssistantHomeView>
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text(
-              "CLOSE CLINIC",
+            child: Text(
+              isAlreadyClosed ? "CONFIRM REOPEN" : "CONFIRM CLOSE",
               style: TextStyle(
-                color: AppColors.error,
+                color: isAlreadyClosed ? AppColors.success : AppColors.error,
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -91,10 +125,32 @@ class _AssistantHomeViewState extends State<AssistantHomeView>
       ),
     );
 
+    // 4. Execute the chosen action
     if (confirm == true) {
-      await queue.emergencyCloseToday();
+      if (isAlreadyClosed) {
+        await queue.reopenClinicForDate(pickedDate);
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text("Clinic reopened for bookings on $dateStr."),
+              backgroundColor: AppColors.success,
+            ),
+          );
+        }
+      } else {
+        await queue.closeClinicForDate(pickedDate);
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text("Clinic closed for $dateStr. Pending appointments cancelled."),
+              backgroundColor: AppColors.error,
+            ),
+          );
+        }
+      }
     }
   }
+
 
   // --- BUILD METHOD ---
 
@@ -278,7 +334,7 @@ class _AssistantHomeViewState extends State<AssistantHomeView>
             );
             break;
           case 'close':
-            _handleEmergencyClose(context, queue);
+            _handleEmergency(context, queue);
             break;
           case 'logout':
             _handleLogout(context, queue);
@@ -303,7 +359,7 @@ class _AssistantHomeViewState extends State<AssistantHomeView>
         _buildPopupItem(
           'close',
           Icons.warning_outlined,
-          "Emergency Close",
+          "SOS",
           AppColors.error,
         ),
         _buildPopupItem(

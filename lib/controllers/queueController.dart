@@ -423,19 +423,19 @@ class QueueController extends ChangeNotifier {
     await updateStatus(appointmentId, AppointmentStatus.active);
   }
 
-  // 2. Planned Closure / Emergency Close (Future Date)
+  // 2. Planned Closure / Emergency Close (Today or Future Date)
   Future<void> closeClinicForDate(DateTime date) async {
     if (selectedClinic == null) return;
     final cleanDate = DateTime(date.year, date.month, date.day);
 
-    // Add to closed dates in Clinic
+    // 1. Add to closed dates in Clinic (Locks patients out)
     await _db.collection('clinics').doc(selectedClinic!.id).update({
       'emergencyClosedDates': FieldValue.arrayUnion([
         Timestamp.fromDate(cleanDate),
       ]),
     });
 
-    // Cancel all appointments for that day
+    // 2. Fetch all appointments for this date
     final snap =
         await _db
             .collection('appointments')
@@ -444,30 +444,39 @@ class QueueController extends ChangeNotifier {
             .get();
 
     WriteBatch batch = _db.batch();
+    int updateCount = 0;
+
+    // Only cancel pending/active ones (protects already completed ones)
+    final cancelableStatuses = ['waiting', 'active', 'skipped', 'scheduled'];
+
     for (var doc in snap.docs) {
-      batch.update(doc.reference, {'status': AppointmentStatus.cancelled.name});
+      final data = doc.data();
+      if (cancelableStatuses.contains(data['status'])) {
+        batch.update(doc.reference, {
+          'status': AppointmentStatus.cancelled.name,
+        });
+        updateCount++;
+      }
     }
-    await batch.commit();
+
+    if (updateCount > 0) {
+      await batch.commit();
+    }
     notifyListeners();
   }
 
-  // 3. Emergency Close (Today / Immediate)
-  Future<void> emergencyCloseToday() async {
+  // --- NEW: Reopen Clinic ---
+  Future<void> reopenClinicForDate(DateTime date) async {
     if (selectedClinic == null) return;
-    WriteBatch batch = _db.batch();
+    final cleanDate = DateTime(date.year, date.month, date.day);
 
-    final activeSnap =
-        await _db
-            .collection('appointments')
-            .where('clinicId', isEqualTo: selectedClinic!.id)
-            .where('status', whereIn: ['waiting', 'active', 'skipped'])
-            .get();
+    // Remove the date from the closed dates array
+    await _db.collection('clinics').doc(selectedClinic!.id).update({
+      'emergencyClosedDates': FieldValue.arrayRemove([
+        Timestamp.fromDate(cleanDate),
+      ]),
+    });
 
-    for (var doc in activeSnap.docs) {
-      batch.update(doc.reference, {'status': AppointmentStatus.cancelled.name});
-    }
-
-    await batch.commit();
     notifyListeners();
   }
 

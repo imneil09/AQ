@@ -56,26 +56,27 @@ class _UnifiedBookingViewState extends State<UnifiedBookingView> {
     super.dispose();
   }
 
-  // Helper: Finds the first day the clinic is actually open starting from 'startDate'
   DateTime _getInitialValidDate(Clinic clinic, DateTime startDate) {
     DateTime date = startDate;
-    // Look ahead up to 30 days to find the next open slot
     for (int i = 0; i < 30; i++) {
+      // Assistant bypass: They don't need to hunt for an open day, they can pick today!
+      if (widget.isAssistant) {
+        return date;
+      }
+
       String dayName = DateFormat('EEEE').format(date);
       bool isOpen = clinic.weeklySchedule[dayName]?.isOpen ?? false;
+      bool isEmergencyClosed = clinic.emergencyClosedDates.any(
+        (d) =>
+            d.year == date.year && d.month == date.month && d.day == date.day,
+      );
 
-      // Check for emergency closure
-      bool isEmergencyClosed = clinic.emergencyClosedDates.any((d) =>
-      d.year == date.year && d.month == date.month && d.day == date.day);
-
-      // If it's open and not emergency closed, this is our date!
       if (isOpen && !isEmergencyClosed) {
         return date;
       }
-      // Otherwise, check the next day
       date = date.add(const Duration(days: 1));
     }
-    return startDate; // Fallback
+    return startDate;
   }
 
   Future<void> _pickDate() async {
@@ -114,29 +115,36 @@ class _UnifiedBookingViewState extends State<UnifiedBookingView> {
       selectableDayPredicate: (DateTime d) {
         if (_selectedClinic == null) return true;
 
-        // 1. Emergency Closure Check
-        bool isEmergencyClosed = _selectedClinic!.emergencyClosedDates.any((closedDate) =>
-        closedDate.year == d.year &&
-            closedDate.month == d.month &&
-            closedDate.day == d.day);
+        // --- NEW: ASSISTANT BYPASS ---
+        // If it's an assistant, they can pick absolutely any date.
+        if (widget.isAssistant) return true;
+
+        // 1. Emergency Closure Check (Patients Only)
+        bool isEmergencyClosed = _selectedClinic!.emergencyClosedDates.any(
+          (closedDate) =>
+              closedDate.year == d.year &&
+              closedDate.month == d.month &&
+              closedDate.day == d.day,
+        );
 
         if (isEmergencyClosed) return false;
 
-        // 2. Weekly Schedule Check
+        // 2. Weekly Schedule Check (Patients Only)
         String dayName = DateFormat('EEEE').format(d);
         return _selectedClinic!.weeklySchedule[dayName]?.isOpen ?? false;
       },
-      builder: (context, child) => Theme(
-        data: ThemeData.dark().copyWith(
-          colorScheme: const ColorScheme.dark(
-            primary: AppColors.primary,
-            surface: AppColors.surface,
-            onSurface: Colors.white,
+      builder:
+          (context, child) => Theme(
+            data: ThemeData.dark().copyWith(
+              colorScheme: const ColorScheme.dark(
+                primary: AppColors.primary,
+                surface: AppColors.surface,
+                onSurface: Colors.white,
+              ),
+              dialogBackgroundColor: AppColors.background,
+            ),
+            child: child!,
           ),
-          dialogBackgroundColor: AppColors.background,
-        ),
-        child: child!,
-      ),
     );
 
     if (picked != null) {
@@ -160,17 +168,19 @@ class _UnifiedBookingViewState extends State<UnifiedBookingView> {
         final name = _nameController.text.trim();
 
         // 1. Check if user already exists
-        final usersSnapshot = await FirebaseFirestore.instance
-            .collection('users')
-            .where('phoneNumber', isEqualTo: phone)
-            .limit(1)
-            .get();
+        final usersSnapshot =
+            await FirebaseFirestore.instance
+                .collection('users')
+                .where('phoneNumber', isEqualTo: phone)
+                .limit(1)
+                .get();
 
         String targetPatientId;
         if (usersSnapshot.docs.isNotEmpty) {
           targetPatientId = usersSnapshot.docs.first.id;
         } else {
-          final newDocRef = FirebaseFirestore.instance.collection('users').doc();
+          final newDocRef =
+              FirebaseFirestore.instance.collection('users').doc();
           targetPatientId = newDocRef.id;
 
           await newDocRef.set({
@@ -191,7 +201,6 @@ class _UnifiedBookingViewState extends State<UnifiedBookingView> {
           clinicId: _selectedClinic!.id,
           patientId: targetPatientId,
         );
-
       } else {
         // --- BACKEND: PATIENT LOGIC ---
         // Patients are subject to the "Max Patients" check in QueueController.
@@ -211,10 +220,14 @@ class _UnifiedBookingViewState extends State<UnifiedBookingView> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-                content: Text(widget.isAssistant ? "Appointment Assigned!" : "Appointment Requested!"),
-                backgroundColor: AppColors.success
-            )
+          SnackBar(
+            content: Text(
+              widget.isAssistant
+                  ? "Appointment Assigned!"
+                  : "Appointment Requested!",
+            ),
+            backgroundColor: AppColors.success,
+          ),
         );
         Navigator.pop(context);
       }
@@ -222,7 +235,7 @@ class _UnifiedBookingViewState extends State<UnifiedBookingView> {
       // Logic: If QueueController throws "Fully Booked", it is caught here
       // and displayed to the user as a red error message.
       ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.toString()), backgroundColor: AppColors.error)
+        SnackBar(content: Text(e.toString()), backgroundColor: AppColors.error),
       );
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -237,8 +250,12 @@ class _UnifiedBookingViewState extends State<UnifiedBookingView> {
       extendBodyBehindAppBar: true,
       appBar: AppBar(
         title: Text(
-            widget.isAssistant ? "WALK-IN / NEW APPOINTMENT" : "NEW APPOINTMENT",
-            style: const TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1.5, fontSize: 13)
+          widget.isAssistant ? "WALK-IN / NEW APPOINTMENT" : "NEW APPOINTMENT",
+          style: const TextStyle(
+            fontWeight: FontWeight.w900,
+            letterSpacing: 1.5,
+            fontSize: 13,
+          ),
         ),
         centerTitle: true,
         backgroundColor: Colors.transparent,
@@ -263,7 +280,10 @@ class _UnifiedBookingViewState extends State<UnifiedBookingView> {
           SafeArea(
             child: Center(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 16,
+                ),
                 child: Form(
                   key: _formKey,
                   child: GlassCard(
@@ -280,17 +300,17 @@ class _UnifiedBookingViewState extends State<UnifiedBookingView> {
                         _buildSectionHeader("PATIENT DETAILS"),
                         if (widget.isAssistant) ...[
                           _buildTextField(
-                              _phoneController,
-                              "Phone Number",
-                              isPhone: true,
-                              icon: Icons.phone_iphone_rounded
+                            _phoneController,
+                            "Phone Number",
+                            isPhone: true,
+                            icon: Icons.phone_iphone_rounded,
                           ),
                           const SizedBox(height: 16),
                         ],
                         _buildTextField(
-                            _nameController,
-                            "Patient Full Name",
-                            icon: Icons.person_outline_rounded
+                          _nameController,
+                          "Patient Full Name",
+                          icon: Icons.person_outline_rounded,
                         ),
                         const SizedBox(height: 24),
 
@@ -314,14 +334,26 @@ class _UnifiedBookingViewState extends State<UnifiedBookingView> {
     );
   }
 
-  Widget _buildTextField(TextEditingController controller, String hint, {bool isPhone = false, required IconData icon}) {
+  Widget _buildTextField(
+    TextEditingController controller,
+    String hint, {
+    bool isPhone = false,
+    required IconData icon,
+  }) {
     return TextFormField(
       controller: controller,
       keyboardType: isPhone ? TextInputType.phone : TextInputType.text,
-      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 15),
+      style: const TextStyle(
+        color: Colors.white,
+        fontWeight: FontWeight.w600,
+        fontSize: 15,
+      ),
       decoration: _inputStyle(hint, icon).copyWith(
         prefixText: isPhone ? "+91 " : null,
-        prefixStyle: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold),
+        prefixStyle: const TextStyle(
+          color: AppColors.primary,
+          fontWeight: FontWeight.bold,
+        ),
       ),
       validator: (v) {
         if (v == null || v.isEmpty) return "This field is required";
@@ -335,11 +367,22 @@ class _UnifiedBookingViewState extends State<UnifiedBookingView> {
     return DropdownButtonFormField<Clinic>(
       value: _selectedClinic,
       dropdownColor: AppColors.surface,
-      icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Colors.white38),
-      items: queue.clinics.map((c) => DropdownMenuItem(
-          value: c,
-          child: Text(c.name, style: const TextStyle(color: Colors.white, fontSize: 15))
-      )).toList(),
+      icon: const Icon(
+        Icons.keyboard_arrow_down_rounded,
+        color: Colors.white38,
+      ),
+      items:
+          queue.clinics
+              .map(
+                (c) => DropdownMenuItem(
+                  value: c,
+                  child: Text(
+                    c.name,
+                    style: const TextStyle(color: Colors.white, fontSize: 15),
+                  ),
+                ),
+              )
+              .toList(),
       onChanged: (val) {
         setState(() {
           _selectedClinic = val;
@@ -351,7 +394,10 @@ class _UnifiedBookingViewState extends State<UnifiedBookingView> {
           }
         });
       },
-      decoration: _inputStyle("Select preferred clinic", Icons.medical_services_outlined),
+      decoration: _inputStyle(
+        "Select preferred clinic",
+        Icons.medical_services_outlined,
+      ),
       validator: (v) => v == null ? "Please select a clinic" : null,
     );
   }
@@ -360,12 +406,28 @@ class _UnifiedBookingViewState extends State<UnifiedBookingView> {
     return DropdownButtonFormField<String>(
       value: _selectedService,
       dropdownColor: AppColors.surface,
-      icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Colors.white38),
-      items: ['New Consultation', 'Follow-up', 'Reports Show', 'Post-OP', 'Emergency']
-          .map((s) => DropdownMenuItem(
-          value: s,
-          child: Text(s, style: const TextStyle(color: Colors.white, fontSize: 15))
-      )).toList(),
+      icon: const Icon(
+        Icons.keyboard_arrow_down_rounded,
+        color: Colors.white38,
+      ),
+      items:
+          [
+                'New Consultation',
+                'Follow-up',
+                'Reports Show',
+                'Post-OP',
+                'Emergency',
+              ]
+              .map(
+                (s) => DropdownMenuItem(
+                  value: s,
+                  child: Text(
+                    s,
+                    style: const TextStyle(color: Colors.white, fontSize: 15),
+                  ),
+                ),
+              )
+              .toList(),
       onChanged: (v) => setState(() => _selectedService = v!),
       decoration: _inputStyle("Purpose of visit", Icons.assignment_outlined),
     );
@@ -384,20 +446,39 @@ class _UnifiedBookingViewState extends State<UnifiedBookingView> {
         ),
         child: Row(
           children: [
-            const Icon(Icons.calendar_month_rounded, color: AppColors.primary, size: 22),
+            const Icon(
+              Icons.calendar_month_rounded,
+              color: AppColors.primary,
+              size: 22,
+            ),
             const SizedBox(width: 16),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text("Date", style: TextStyle(color: Colors.white38, fontSize: 11, fontWeight: FontWeight.bold)),
+                const Text(
+                  "Date",
+                  style: TextStyle(
+                    color: Colors.white38,
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
                 Text(
                   DateFormat('EEEE, MMM dd, yyyy').format(_selectedDate),
-                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 14),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                  ),
                 ),
               ],
             ),
             const Spacer(),
-            const Icon(Icons.edit_calendar_outlined, color: Colors.white24, size: 18),
+            const Icon(
+              Icons.edit_calendar_outlined,
+              color: Colors.white24,
+              size: 18,
+            ),
           ],
         ),
       ),
@@ -415,7 +496,7 @@ class _UnifiedBookingViewState extends State<UnifiedBookingView> {
             color: AppColors.primary.withOpacity(0.3),
             blurRadius: 20,
             offset: const Offset(0, 10),
-          )
+          ),
         ],
       ),
       child: ElevatedButton(
@@ -423,15 +504,31 @@ class _UnifiedBookingViewState extends State<UnifiedBookingView> {
         style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.primary,
           foregroundColor: Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
           elevation: 0,
         ),
-        child: _isLoading
-            ? const SizedBox(height: 24, width: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3))
-            : Text(
-            widget.isAssistant ? "CONFIRM APPOINTMENT" : "CONFIRM APPOINTMENT",
-            style: const TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1.2, fontSize: 14)
-        ),
+        child:
+            _isLoading
+                ? const SizedBox(
+                  height: 24,
+                  width: 24,
+                  child: CircularProgressIndicator(
+                    color: Colors.white,
+                    strokeWidth: 3,
+                  ),
+                )
+                : Text(
+                  widget.isAssistant
+                      ? "CONFIRM APPOINTMENT"
+                      : "CONFIRM APPOINTMENT",
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1.2,
+                    fontSize: 14,
+                  ),
+                ),
       ),
     );
   }
@@ -445,16 +542,16 @@ class _UnifiedBookingViewState extends State<UnifiedBookingView> {
       fillColor: AppColors.glassWhite.withOpacity(0.03),
       contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
       border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(20),
-          borderSide: BorderSide(color: AppColors.glassBorder)
+        borderRadius: BorderRadius.circular(20),
+        borderSide: BorderSide(color: AppColors.glassBorder),
       ),
       enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(20),
-          borderSide: BorderSide(color: AppColors.glassBorder)
+        borderRadius: BorderRadius.circular(20),
+        borderSide: BorderSide(color: AppColors.glassBorder),
       ),
       focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(20),
-          borderSide: const BorderSide(color: AppColors.primary, width: 1.5)
+        borderRadius: BorderRadius.circular(20),
+        borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
       ),
     );
   }
@@ -463,13 +560,13 @@ class _UnifiedBookingViewState extends State<UnifiedBookingView> {
     return Padding(
       padding: const EdgeInsets.only(left: 4, bottom: 12),
       child: Text(
-          text,
-          style: const TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w900,
-              color: Color(0xFF94A3B8),
-              letterSpacing: 1.8
-          )
+        text,
+        style: const TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.w900,
+          color: Color(0xFF94A3B8),
+          letterSpacing: 1.8,
+        ),
       ),
     );
   }
