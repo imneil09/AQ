@@ -12,8 +12,17 @@ import 'prescriptionPdf.dart';
 class PrescriptionView extends StatefulWidget {
   final Appointment patient;
   final VoidCallback onFinish;
+  // --- NEW: Draft Support ---
+  final Map<String, dynamic>? initialDraft;
+  final Function(Map<String, dynamic>)? onDraftChanged;
 
-  const PrescriptionView({super.key, required this.patient, required this.onFinish});
+  const PrescriptionView({
+    super.key,
+    required this.patient,
+    required this.onFinish,
+    this.initialDraft,
+    this.onDraftChanged,
+  });
 
   @override
   State<PrescriptionView> createState() => _PrescriptionViewState();
@@ -22,19 +31,20 @@ class PrescriptionView extends StatefulWidget {
 class _PrescriptionViewState extends State<PrescriptionView> with SingleTickerProviderStateMixin {
   late TabController _tabController;
 
-  // -- Controllers --
-  final _diagnosisCtrl = TextEditingController();
-  final _prevReportCtrl = TextEditingController();
-  final _newInvestCtrl = TextEditingController();
-  final _dietCtrl = TextEditingController();
+  // -- Controllers (Changed to late to support drafts) --
+  late TextEditingController _diagnosisCtrl;
+  late TextEditingController _prevReportCtrl;
+  late TextEditingController _newInvestCtrl;
+  late TextEditingController _dietCtrl;
+
   final _medNameCtrl = TextEditingController();
   final _medQtyCtrl = TextEditingController();
 
   DateTime? _nextVisitDate;
   bool _isSubmitting = false;
 
-  // -- Medicine State --
-  final List<Map<String, String>> _medicines = [];
+  // -- Medicine State (Removed final to support drafts) --
+  List<Map<String, String>> _medicines = [];
   String _timing = "1-0-1";
   bool _afterFood = true;
 
@@ -42,6 +52,45 @@ class _PrescriptionViewState extends State<PrescriptionView> with SingleTickerPr
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+
+    // --- NEW: Initialize from Draft (if exists) or Empty ---
+    final draft = widget.initialDraft ?? {};
+
+    _diagnosisCtrl = TextEditingController(text: draft['diagnosis'] ?? '');
+    _prevReportCtrl = TextEditingController(text: draft['prevReport'] ?? '');
+    _newInvestCtrl = TextEditingController(text: draft['newInvest'] ?? '');
+    _dietCtrl = TextEditingController(text: draft['diet'] ?? '');
+
+    // Restore medicines if they exist in draft
+    if (draft['medicines'] != null) {
+      _medicines = List<Map<String, String>>.from(
+          (draft['medicines'] as List).map((item) => Map<String, String>.from(item))
+      );
+    }
+
+    if (draft['nextVisit'] != null) {
+      _nextVisitDate = DateTime.tryParse(draft['nextVisit']);
+    }
+
+    // Add Listeners to auto-save draft to parent whenever text changes
+    _diagnosisCtrl.addListener(_notifyChange);
+    _prevReportCtrl.addListener(_notifyChange);
+    _newInvestCtrl.addListener(_notifyChange);
+    _dietCtrl.addListener(_notifyChange);
+  }
+
+  // --- NEW: Notify parent of draft changes ---
+  void _notifyChange() {
+    if (widget.onDraftChanged != null) {
+      widget.onDraftChanged!({
+        'diagnosis': _diagnosisCtrl.text,
+        'prevReport': _prevReportCtrl.text,
+        'newInvest': _newInvestCtrl.text,
+        'diet': _dietCtrl.text,
+        'medicines': _medicines,
+        'nextVisit': _nextVisitDate?.toIso8601String(),
+      });
+    }
   }
 
   @override
@@ -262,8 +311,13 @@ Next Visit: ${_nextVisitDate != null ? DateFormat('dd MMM yyyy').format(_nextVis
     );
   }
 
+  // Adjusted to Wrap to prevent RenderFlex overflow
   Widget _buildActionFooter() {
-    return Row(
+    return Wrap(
+      alignment: WrapAlignment.spaceBetween,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      runSpacing: 16,
+      spacing: 16,
       children: [
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -285,7 +339,10 @@ Next Visit: ${_nextVisitDate != null ? DateFormat('dd MMM yyyy').format(_nextVis
                       );
                     }
                 );
-                if (d != null) setState(() => _nextVisitDate = d);
+                if (d != null) {
+                  setState(() => _nextVisitDate = d);
+                  _notifyChange(); // Update draft when date picked
+                }
               },
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
@@ -295,6 +352,7 @@ Next Visit: ${_nextVisitDate != null ? DateFormat('dd MMM yyyy').format(_nextVis
                   border: Border.all(color: AppColors.glassBorder),
                 ),
                 child: Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     const Icon(Icons.calendar_today_rounded, color: Colors.white54, size: 18),
                     const SizedBox(width: 12),
@@ -308,46 +366,50 @@ Next Visit: ${_nextVisitDate != null ? DateFormat('dd MMM yyyy').format(_nextVis
             ),
           ],
         ),
-        const Spacer(),
 
-        // PRINT BUTTON - WIRED TO DIAGNOSIS
-        OutlinedButton.icon(
-          icon: const Icon(Icons.print_rounded),
-          label: const Text("PRINT PRESCRIPTION"),
-          style: OutlinedButton.styleFrom(
-            foregroundColor: Colors.white,
-            side: BorderSide(color: Colors.white.withOpacity(0.2)),
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          ),
-          onPressed: () {
-            PrescriptionPDF.generateAndPrint(
-                patientName: widget.patient.customerName,
-                diagnosis: _diagnosisCtrl.text, // <--- WIRED HERE
-                prevReports: _prevReportCtrl.text,
-                medicines: _medicines,
-                newInvestigations: _newInvestCtrl.text,
-                dietInstructions: _dietCtrl.text,
-                nextVisit: _nextVisitDate
-            );
-          },
-        ),
-        const SizedBox(width: 16),
+        Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // PRINT BUTTON - WIRED TO DIAGNOSIS
+              OutlinedButton.icon(
+                icon: const Icon(Icons.print_rounded),
+                label: const Text("PRINT PRESCRIPTION"),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.white,
+                  side: BorderSide(color: Colors.white.withOpacity(0.2)),
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                onPressed: () {
+                  PrescriptionPDF.generateAndPrint(
+                      patientName: widget.patient.customerName,
+                      diagnosis: _diagnosisCtrl.text, // <--- WIRED HERE
+                      prevReports: _prevReportCtrl.text,
+                      medicines: _medicines,
+                      newInvestigations: _newInvestCtrl.text,
+                      dietInstructions: _dietCtrl.text,
+                      nextVisit: _nextVisitDate
+                  );
+                },
+              ),
+              const SizedBox(width: 16),
 
-        // FINISH BUTTON
-        ElevatedButton.icon(
-          icon: _isSubmitting
-              ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-              : const Icon(Icons.check_circle_rounded),
-          label: Text(_isSubmitting ? "SAVING..." : "FINISH CONSULTATION"),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.success,
-            foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 20),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            elevation: 0,
-          ),
-          onPressed: _isSubmitting ? null : _submitConsultation,
+              // FINISH BUTTON
+              ElevatedButton.icon(
+                icon: _isSubmitting
+                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    : const Icon(Icons.check_circle_rounded),
+                label: Text(_isSubmitting ? "SAVING..." : "FINISH CONSULTATION"),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.success,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 20),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  elevation: 0,
+                ),
+                onPressed: _isSubmitting ? null : _submitConsultation,
+              ),
+            ]
         ),
       ],
     );
@@ -515,6 +577,8 @@ Next Visit: ${_nextVisitDate != null ? DateFormat('dd MMM yyyy').format(_nextVis
       _medNameCtrl.clear();
       _medQtyCtrl.clear();
     });
+
+    _notifyChange(); // Update draft when medicine added
   }
 
   Widget _buildMedicineTable() {
@@ -539,7 +603,10 @@ Next Visit: ${_nextVisitDate != null ? DateFormat('dd MMM yyyy').format(_nextVis
             DataCell(Text(m['qty']!, style: const TextStyle(color: Colors.white))),
             DataCell(IconButton(
               icon: Icon(Icons.remove_circle_outline_rounded, color: AppColors.error.withOpacity(0.8), size: 18),
-              onPressed: () => setState(() => _medicines.remove(m)),
+              onPressed: () {
+                setState(() => _medicines.remove(m));
+                _notifyChange(); // Update draft when medicine removed
+              },
             ))
           ]);
         }).toList(),

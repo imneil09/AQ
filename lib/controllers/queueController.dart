@@ -403,6 +403,26 @@ class QueueController extends ChangeNotifier {
     await batch.commit();
   }
 
+  // --- NEW: CALL NEXT PATIENT LOGIC ---
+  Future<void> callNextPatient() async {
+    // 1. Safety check: Is there anyone waiting?
+    if (waitingList.isEmpty) return;
+
+    // NOTE: The loop that marked previous active patients as 'completed'
+    // has been REMOVED. This allows multiple patients to be 'active' (in cabin) at once.
+
+    // 2. Get the first person in the waiting list
+    final nextPatient = waitingList.first;
+
+    // 3. Update their status to 'active' so they appear in the main workspace
+    await updateStatus(nextPatient.id, AppointmentStatus.active);
+  }
+
+  // --- NEW: EXPLICITLY SET PATIENT ACTIVE (For toggling/selecting) ---
+  Future<void> setPatientActive(String appointmentId) async {
+    await updateStatus(appointmentId, AppointmentStatus.active);
+  }
+
   // 2. Planned Closure / Emergency Close (Future Date)
   Future<void> closeClinicForDate(DateTime date) async {
     if (selectedClinic == null) return;

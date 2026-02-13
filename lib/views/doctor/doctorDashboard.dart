@@ -19,10 +19,14 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
   final TextEditingController _searchCtrl = TextEditingController();
   bool _isSearching = false;
 
-  // Sidebar animation state
+  // --- NEW: Track selected patient and their drafts ---
+  String? _selectedPatientId;
+  final Map<String, Map<String, dynamic>> _drafts = {};
+
+  // Sidebar animation constants
   bool _isWorkspaceHovered = false;
   static const double _sidebarExpandedWidth = 320.0;
-  static const double _sidebarMinimizedWidth = 80.0;
+  static const double _sidebarMinimizedWidth = 90.0;
 
   @override
   void dispose() {
@@ -33,42 +37,70 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
   @override
   Widget build(BuildContext context) {
     final queue = Provider.of<QueueController>(context);
-    // Logic: The first person in the "active" list is currently in the cabin
-    final activePatient = queue.activeQueue.isNotEmpty ? queue.activeQueue.first : null;
+
+    // --- NEW: Auto-select active patient logic ---
+    final activeList = queue.activeQueue;
+    Appointment? activePatient;
+
+    if (activeList.isNotEmpty) {
+      if (_selectedPatientId == null || !activeList.any((a) => a.id == _selectedPatientId)) {
+        // If selection is invalid, default to the first active person
+        _selectedPatientId = activeList.first.id;
+      }
+      activePatient = activeList.firstWhere((a) => a.id == _selectedPatientId);
+    } else {
+      _selectedPatientId = null;
+    }
 
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: _buildModernAppBar(context, queue),
-      body: Row(
-        children: [
-          // 1. Left Sidebar: Live Queue Monitor with Animation
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 300),
-            curve: Curves.easeInOut,
-            width: _isWorkspaceHovered ? _sidebarMinimizedWidth : _sidebarExpandedWidth,
-            child: _buildLiveQueueSidebar(queue, activePatient),
-          ),
+      body: LayoutBuilder(
+          builder: (context, constraints) {
+            // Responsive: Force minimize on small screens
+            final bool isSmallScreen = constraints.maxWidth < 900;
+            final double targetSidebarWidth = isSmallScreen
+                ? _sidebarMinimizedWidth
+                : (_isWorkspaceHovered ? _sidebarMinimizedWidth : _sidebarExpandedWidth);
 
-          // 2. Right Content Area: Workspace wrapped in MouseRegion
-          Expanded(
-            flex: 4,
-            child: MouseRegion(
-              onEnter: (_) => setState(() => _isWorkspaceHovered = true),
-              onExit: (_) => setState(() => _isWorkspaceHovered = false),
-              child: Container(
-                margin: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: AppColors.surface,
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: AppColors.glassWhite),
+            return Row(
+              children: [
+                // 1. Left Sidebar with Smart Layout Handling
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeInOut,
+                  width: targetSidebarWidth,
+                  child: LayoutBuilder(
+                    builder: (context, box) {
+                      // Switch to expanded view only when we have enough space (e.g., > 180px)
+                      final bool effectiveCollapsed = box.maxWidth < 180;
+                      return _buildLiveQueueSidebar(queue, activePatient, effectiveCollapsed);
+                    },
+                  ),
                 ),
-                child: queue.isOnBreak
-                    ? _buildBreakScreen(queue)
-                    : _buildMainWorkspace(queue, activePatient),
-              ),
-            ),
-          ),
-        ],
+
+                // 2. Right Content Area
+                Expanded(
+                  flex: 4,
+                  child: MouseRegion(
+                    onEnter: isSmallScreen ? null : (_) => setState(() => _isWorkspaceHovered = true),
+                    onExit: isSmallScreen ? null : (_) => setState(() => _isWorkspaceHovered = false),
+                    child: Container(
+                      margin: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: AppColors.surface,
+                        borderRadius: BorderRadius.circular(24),
+                        border: Border.all(color: AppColors.glassWhite),
+                      ),
+                      child: queue.isOnBreak
+                          ? _buildBreakScreen(queue)
+                          : _buildMainWorkspace(queue, activePatient),
+                    ),
+                  ),
+                ),
+              ],
+            );
+          }
       ),
     );
   }
@@ -94,7 +126,7 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
             children: [
               const Text("Dr. Shankar Deb Roy",
                   style: TextStyle(fontWeight: FontWeight.w900, fontSize: 20, color: Colors.white)),
-              Text("Live Dashboard",
+              Text(queue.selectedClinic?.name ?? "Live Dashboard",
                   style: TextStyle(fontSize: 12, color: Colors.white.withOpacity(0.4), letterSpacing: 1.2)),
             ],
           ),
@@ -155,26 +187,54 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
     );
   }
 
-  Widget _buildLiveQueueSidebar(QueueController queue, Appointment? active) {
+  Widget _buildLiveQueueSidebar(QueueController queue, Appointment? selected, bool isCollapsed) {
     return Container(
       width: double.infinity,
       color: AppColors.background,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (!_isWorkspaceHovered)
-            const Padding(
-              padding: EdgeInsets.fromLTRB(24, 16, 24, 8),
-              child: Text("UPCOMING QUEUE",
-                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: AppColors.primary, letterSpacing: 1.5)),
+          // --- NEW: SECTION 1: ACTIVE PATIENTS (TOGGLE LIST) ---
+          if (queue.activeQueue.isNotEmpty) ...[
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 24, 24, 8),
+              child: isCollapsed
+                  ? const Center(child: Icon(Icons.meeting_room_rounded, color: AppColors.success))
+                  : const Text("IN CABIN (ACTIVE)", style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: AppColors.success, letterSpacing: 1.5)),
             ),
+            ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              padding: EdgeInsets.symmetric(horizontal: isCollapsed ? 8 : 16),
+              itemCount: queue.activeQueue.length,
+              itemBuilder: (context, index) {
+                final appt = queue.activeQueue[index];
+                final isSelected = appt.id == selected?.id;
+
+                return InkWell(
+                  onTap: () => setState(() => _selectedPatientId = appt.id),
+                  child: _buildQueueCard(appt, true, isCollapsed, isSelected: isSelected),
+                );
+              },
+            ),
+            Divider(color: Colors.white.withOpacity(0.1), height: 32),
+          ],
+
+          // --- SECTION 2: WAITING LIST ---
+          Padding(
+            padding: EdgeInsets.fromLTRB(24, queue.activeQueue.isNotEmpty ? 8 : 24, 24, 16),
+            child: isCollapsed
+                ? const Center(child: Icon(Icons.people_alt_rounded, color: AppColors.primary))
+                : const Text("IN QUEUE(WAITING)",
+                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: AppColors.primary, letterSpacing: 1.5)),
+          ),
           Expanded(
             child: ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
+              padding: EdgeInsets.symmetric(horizontal: isCollapsed ? 8 : 16),
               itemCount: queue.waitingList.length,
               itemBuilder: (context, index) {
                 final appt = queue.waitingList[index];
-                return _buildQueueCard(appt, false);
+                return _buildQueueCard(appt, false, isCollapsed);
               },
             ),
           ),
@@ -183,37 +243,50 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
     );
   }
 
-  Widget _buildQueueCard(Appointment appt, bool isActive) {
-    return Container(
+  // --- MODIFIED: Added isSelected logic for styling ---
+  Widget _buildQueueCard(Appointment appt, bool isActiveList, bool isCollapsed, {bool isSelected = false}) {
+    Color cardColor;
+    if (isActiveList) {
+      cardColor = isSelected ? AppColors.success : AppColors.success.withOpacity(0.2);
+    } else {
+      cardColor = Colors.white.withOpacity(0.03);
+    }
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
       margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(isCollapsed ? 12 : 16),
       decoration: BoxDecoration(
-        color: isActive ? AppColors.primary : Colors.white.withOpacity(0.03),
+        color: cardColor,
         borderRadius: BorderRadius.circular(16),
+        border: isSelected ? Border.all(color: AppColors.success, width: 2) : null,
       ),
-      child: Row(
-        children: [
-          CircleAvatar(
-            backgroundColor: isActive ? Colors.white24 : AppColors.primary.withOpacity(0.2),
-            child: Text("${appt.tokenNumber}", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-          ),
-          if (!_isWorkspaceHovered) ...[
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        physics: const NeverScrollableScrollPhysics(),
+        child: Row(
+          mainAxisAlignment: isCollapsed ? MainAxisAlignment.center : MainAxisAlignment.start,
+          children: [
+            CircleAvatar(
+              backgroundColor: isActiveList ? Colors.white24 : AppColors.primary.withOpacity(0.2),
+              radius: isCollapsed ? 16 : 20,
+              child: Text("${appt.tokenNumber}",
+                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: isCollapsed ? 12 : 14)),
+            ),
+            if (!isCollapsed) ...[
+              const SizedBox(width: 12),
+              Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(appt.customerName,
-                      overflow: TextOverflow.ellipsis,
                       style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
-                  Text(appt.serviceType,
-                      overflow: TextOverflow.ellipsis,
+                  Text(isActiveList ? "In Cabin" : appt.serviceType,
                       style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 12)),
                 ],
               ),
-            ),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }
@@ -222,11 +295,18 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
     if (_isSearching && _searchCtrl.text.isNotEmpty) return _buildSearchResults(queue);
 
     if (active != null) {
+      // --- NEW: Using Drafts and ValueKey ---
       return PrescriptionView(
+        key: ValueKey(active.id), // Forces rebuild when switching patients
         patient: active,
+        initialDraft: _drafts[active.id],
+        onDraftChanged: (newData) {
+          // Save draft to local memory immediately
+          _drafts[active.id] = newData;
+        },
         onFinish: () {
-          // NOTE: The database update is handled inside PrescriptionView via queue.completeAppointment.
-          // We just show a confirmation here.
+          // Clear draft when finished
+          _drafts.remove(active.id);
           ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
                 content: Text("Consultation Completed Successfully"),
@@ -238,10 +318,10 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
       );
     }
 
-    return _buildIdleState();
+    return _buildIdleState(queue);
   }
 
-  Widget _buildIdleState() {
+  Widget _buildIdleState(QueueController queue) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -252,9 +332,24 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
             child: Icon(Icons.person_search_rounded, size: 80, color: Colors.white.withOpacity(0.05)),
           ),
           const SizedBox(height: 24),
-          const Text("Workspace Ready", style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w900)),
+          const Text("Ready for Patient", style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w900)),
           const SizedBox(height: 8),
-          const Text("Click 'Call Next' on the assistant panel to begin", style: TextStyle(color: Colors.white24)),
+
+          if (queue.waitingList.isNotEmpty) ...[
+            const SizedBox(height: 24),
+            ElevatedButton.icon(
+              onPressed: () => queue.callNextPatient(),
+              icon: const Icon(Icons.notifications_active_rounded),
+              label: const Text("CALL NEXT PATIENT"),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 20),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            )
+          ] else
+            const Text("No patients waiting in queue.", style: TextStyle(color: Colors.white24)),
         ],
       ),
     );
