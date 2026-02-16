@@ -12,7 +12,7 @@ class PrescriptionPDF {
   static final PdfColor secondaryColor = PdfColor.fromHex('#E0F2F1');
   static final PdfColor textColor = PdfColors.grey800;
   static final PdfColor lightGrey = PdfColors.grey100;
-// 0.2 represents 20% opacity
+  // 0.2 represents 20% opacity
   static final PdfColor primaryTransparent = PdfColor(primaryColor.red, primaryColor.green, primaryColor.blue, 0.2);
 
   static pw.TextStyle get _headerStyle => pw.TextStyle(fontSize: 26, fontWeight: pw.FontWeight.bold, color: primaryColor);
@@ -30,6 +30,7 @@ class PrescriptionPDF {
     required String newInvestigations,
     required String dietInstructions,
     required DateTime? nextVisit,
+    required Map<String, dynamic>? vitals, // <--- NEW PARAMETER
   }) async {
     final doc = pw.Document();
 
@@ -67,7 +68,7 @@ class PrescriptionPDF {
                         crossAxisAlignment: pw.CrossAxisAlignment.start,
                         children: [
                           // Left Panel: Diagnosis, Vitals, Reports
-                          _buildLeftPanel(diagnosis, prevReports, newInvestigations),
+                          _buildLeftPanel(diagnosis, prevReports, newInvestigations, vitals),
 
                           pw.SizedBox(width: 20),
                           // Vertical Divider
@@ -170,9 +171,17 @@ class PrescriptionPDF {
     );
   }
 
-  static pw.Widget _buildLeftPanel(String diagnosis, String prevReports, String investigations) {
+  // --- REFACTORED: Now accepts and displays the vitals dynamically ---
+  static pw.Widget _buildLeftPanel(String diagnosis, String prevReports, String investigations, Map<String, dynamic>? vitals) {
+
+    // Safely extract vitals or fallback to blank lines
+    final bp = vitals?['bp']?.toString().isNotEmpty == true ? vitals!['bp'] : '______';
+    final temp = vitals?['temp']?.toString().isNotEmpty == true ? vitals!['temp'] : '______';
+    final weight = vitals?['weight']?.toString().isNotEmpty == true ? vitals!['weight'] : '______';
+    final spo2 = vitals?['spo2']?.toString().isNotEmpty == true ? vitals!['spo2'] : '______';
+
     return pw.Expanded(
-      flex: 3, // Changed flex for better proportion
+      flex: 3,
       child: pw.Column(
         crossAxisAlignment: pw.CrossAxisAlignment.start,
         children: [
@@ -195,12 +204,18 @@ class PrescriptionPDF {
                 pw.Row(
                     mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                     children: [
-                      pw.Text("BP: ______ mmHg", style: _bodyStyle),
-                      pw.Text("Temp: ______ °F", style: _bodyStyle),
+                      pw.Text("BP: $bp", style: _bodyStyle),
+                      pw.Text("Temp: $temp", style: _bodyStyle),
                     ]
                 ),
                 pw.SizedBox(height: 8),
-                pw.Text("Weight: ______ kg", style: _bodyStyle),
+                pw.Row(
+                    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                    children: [
+                      pw.Text("Weight: $weight", style: _bodyStyle),
+                      pw.Text("SpO2: $spo2", style: _bodyStyle),
+                    ]
+                ),
               ],
             ),
           ),

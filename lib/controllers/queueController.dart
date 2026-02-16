@@ -193,6 +193,8 @@ class QueueController extends ChangeNotifier {
         bookingTimestamp: appt.bookingTimestamp,
         tokenNumber: appt.tokenNumber,
         status: appt.status,
+        vitals:
+            appt.vitals, // <--- ADD THIS LINE HERE so vitals aren't stripped in UI
       );
 
       if (newAppt.status == AppointmentStatus.active) {
@@ -380,6 +382,7 @@ class QueueController extends ChangeNotifier {
     required List<String> medicines,
     required String notes,
     required String diagnosis,
+    Map<String, dynamic>? vitals, // <--- 1. ADD THIS PARAMETER
   }) async {
     WriteBatch batch = _db.batch();
 
@@ -393,6 +396,7 @@ class QueueController extends ChangeNotifier {
       'notes': notes,
       'diagnosis': diagnosis,
       'timestamp': FieldValue.serverTimestamp(),
+      'vitals': vitals, // <--- 2. SAVE IT TO FIREBASE
     });
 
     // Update Appointment Status to Completed
@@ -511,39 +515,69 @@ class QueueController extends ChangeNotifier {
     }
   }
 
-  // --- HISTORY STREAMS ---
+  // --- UNIFIED HISTORY STREAM (Max 4 Months / 124 Days) ---
+  Stream<List<Appointment>> getHistoryStream({
+    required bool isAssistant,
+    required DateTime startDate,
+    required DateTime endDate,
+  }) {
+    // 1. Backend Safety Net: Enforce maximum 4 months (approx 124 days) limit
+    DateTime safeStartDate = startDate;
+    if (endDate.difference(startDate).inDays > 124) {
+      safeStartDate = endDate.subtract(const Duration(days: 124));
+    }
 
-  Stream<List<Appointment>> get patientHistory {
-    final user = _auth.currentUser;
-    if (user == null) return Stream.value([]);
+    // 2. Ensure we cover the entire selected days (00:00:00 to 23:59:59)
+    final startOfDay = DateTime(
+      safeStartDate.year,
+      safeStartDate.month,
+      safeStartDate.day,
+      0,
+      0,
+      0,
+    );
+    final endOfDay = DateTime(
+      endDate.year,
+      endDate.month,
+      endDate.day,
+      23,
+      59,
+      59,
+    );
 
-    // 1. Fetch RAW history for the patient (Completed or Cancelled)
-    return _db
-        .collection('appointments')
-        .where('patientId', isEqualTo: user.uid)
+    Query query = _db.collection('appointments');
+
+    // 3. Filter by Role (Admin vs Patient)
+    if (isAssistant) {
+      if (selectedClinic == null) return Stream.value([]);
+      query = query.where('clinicId', isEqualTo: selectedClinic!.id);
+    } else {
+      final user = _auth.currentUser;
+      if (user == null) return Stream.value([]);
+      query = query.where('patientId', isEqualTo: user.uid);
+    }
+
+    // 4. Apply strict date bounds
+    return query
+        .where(
+          'appointmentDate',
+          isGreaterThanOrEqualTo: Timestamp.fromDate(startOfDay),
+        )
+        .where(
+          'appointmentDate',
+          isLessThanOrEqualTo: Timestamp.fromDate(endOfDay),
+        )
         .orderBy('appointmentDate', descending: true)
         .snapshots()
         .map(
           (snap) =>
               snap.docs
-                  .map((d) => Appointment.fromMap(d.data(), d.id))
-                  .toList(),
-        );
-  }
-
-  Stream<List<Appointment>> get assistantFullHistory {
-    if (selectedClinic == null) return Stream.value([]);
-
-    // 1. Fetch RAW history for the clinic
-    return _db
-        .collection('appointments')
-        .where('clinicId', isEqualTo: selectedClinic!.id)
-        .orderBy('appointmentDate', descending: true)
-        .snapshots()
-        .map(
-          (snap) =>
-              snap.docs
-                  .map((d) => Appointment.fromMap(d.data(), d.id))
+                  .map(
+                    (d) => Appointment.fromMap(
+                      d.data() as Map<String, dynamic>,
+                      d.id,
+                    ),
+                  )
                   .toList(),
         );
   }
@@ -617,5 +651,15 @@ class QueueController extends ChangeNotifier {
 
           return list;
         });
+  }
+
+  // --- NEW: VITALS MANAGEMENT ---
+  Future<void> saveVitals(
+    String appointmentId,
+    Map<String, dynamic> vitals,
+  ) async {
+    await _db.collection('appointments').doc(appointmentId).update({
+      'vitals': vitals,
+    });
   }
 }

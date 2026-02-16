@@ -26,9 +26,22 @@ class _HistoryViewState extends State<HistoryView> {
   String _searchQuery = '';
   final List<String> _filters = ['ALL', 'COMPLETED', 'CANCELLED'];
 
+  // --- UNIFIED DATE RANGE STATE ---
+  late DateTime _startDate;
+  late DateTime _endDate;
+
   // Stream Management
   Stream<List<Appointment>>? _stableStream;
   String? _streamIdentity; // Used to detect if we need to reconnect
+
+  @override
+  void initState() {
+    super.initState();
+    // Default: Exactly 4 months ago from today
+    final now = DateTime.now();
+    _endDate = now;
+    _startDate = DateTime(now.year, now.month - 4, now.day);
+  }
 
   @override
   void didChangeDependencies() {
@@ -39,19 +52,21 @@ class _HistoryViewState extends State<HistoryView> {
   void _initializeStream() {
     final queue = Provider.of<QueueController>(context, listen: false);
 
-    // Create a unique ID for the current data source
-    // This forces a reconnect if the user switches clinics or accounts
-    String newIdentity =
-        widget.isAdmin
-            ? "admin_${queue.selectedClinic?.id}"
-            : "patient_${queue.currentUserId}";
+    // Identity includes dates so the stream reconnects if dates change
+    String newIdentity = widget.isAdmin
+        ? "admin_${queue.selectedClinic?.id}_${_startDate.toIso8601String()}_${_endDate.toIso8601String()}"
+        : "patient_${queue.currentUserId}_${_startDate.toIso8601String()}_${_endDate.toIso8601String()}";
 
     // Only reconnect if the identity has changed (prevents loop)
     if (_streamIdentity != newIdentity) {
       setState(() {
         _streamIdentity = newIdentity;
-        _stableStream =
-            widget.isAdmin ? queue.assistantFullHistory : queue.patientHistory;
+        // Call the unified backend method
+        _stableStream = queue.getHistoryStream(
+          isAssistant: widget.isAdmin,
+          startDate: _startDate,
+          endDate: _endDate,
+        );
       });
     }
   }
@@ -87,6 +102,10 @@ class _HistoryViewState extends State<HistoryView> {
                 _buildSearchBar(),
                 _buildFilterChips(),
 
+                // --- NEW CALENDAR UI COMPONENT ---
+                _buildDateRangeSelector(),
+                const SizedBox(height: 8),
+
                 Expanded(
                   child: StreamBuilder<List<Appointment>>(
                     stream: _stableStream,
@@ -108,42 +127,33 @@ class _HistoryViewState extends State<HistoryView> {
 
                       // 2. Strict Filter: ONLY Completed or Cancelled
                       // (We intentionally hide 'waiting', 'active', 'skipped' from History)
-                      list =
-                          list
-                              .where(
-                                (a) =>
-                                    a.status == AppointmentStatus.completed ||
-                                    a.status == AppointmentStatus.cancelled,
-                              )
-                              .toList();
+                      list = list.where((a) =>
+                      a.status == AppointmentStatus.completed ||
+                          a.status == AppointmentStatus.cancelled)
+                          .toList();
 
                       // 3. Apply Tab Filter
                       if (_activeFilter != 'ALL') {
-                        list =
-                            list.where((a) {
-                              if (_activeFilter == 'COMPLETED')
-                                return a.status == AppointmentStatus.completed;
-                              if (_activeFilter == 'CANCELLED')
-                                return a.status == AppointmentStatus.cancelled;
-                              return true;
-                            }).toList();
+                        list = list.where((a) {
+                          if (_activeFilter == 'COMPLETED') {
+                            return a.status == AppointmentStatus.completed;
+                          }
+                          if (_activeFilter == 'CANCELLED') {
+                            return a.status == AppointmentStatus.cancelled;
+                          }
+                          return true;
+                        }).toList();
                       }
 
                       // 4. Apply Search Filter
                       if (_searchQuery.isNotEmpty) {
                         final q = _searchQuery.toLowerCase();
-                        list =
-                            list
-                                .where(
-                                  (a) =>
-                                      a.customerName.toLowerCase().contains(
-                                        q,
-                                      ) ||
-                                      a.serviceType.toLowerCase().contains(q) ||
-                                      a.tokenNumber.toString().contains(q) ||
-                                      a.phoneNumber.contains(q),
-                                )
-                                .toList();
+                        list = list.where((a) =>
+                        a.customerName.toLowerCase().contains(q) ||
+                            a.serviceType.toLowerCase().contains(q) ||
+                            a.tokenNumber.toString().contains(q) ||
+                            a.phoneNumber.contains(q))
+                            .toList();
                       }
 
                       if (list.isEmpty) return _buildEmptyState();
@@ -226,8 +236,7 @@ class _HistoryViewState extends State<HistoryView> {
                     color: isActive ? AppColors.primary : AppColors.glassWhite,
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
-                      color:
-                          isActive ? Colors.transparent : AppColors.glassBorder,
+                      color: isActive ? Colors.transparent : AppColors.glassBorder,
                     ),
                   ),
                   child: Center(
@@ -250,6 +259,91 @@ class _HistoryViewState extends State<HistoryView> {
     );
   }
 
+  // --- NEW DATE RANGE SELECTOR WIDGET ---
+  Widget _buildDateRangeSelector() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            "${DateFormat('MMM dd, yyyy').format(_startDate)}  -  ${DateFormat('MMM dd, yyyy').format(_endDate)}",
+            style: TextStyle(
+              color: Colors.white.withOpacity(0.7),
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 0.5,
+            ),
+          ),
+          InkWell(
+            onTap: () async {
+              final picked = await showDateRangePicker(
+                context: context,
+                initialDateRange: DateTimeRange(start: _startDate, end: _endDate),
+                firstDate: DateTime(2020), // Can go back to any historical date
+                lastDate: DateTime.now(), // Cannot look into the future
+                builder: (context, child) {
+                  return Theme(
+                    data: ThemeData.dark().copyWith(
+                      colorScheme: const ColorScheme.dark(
+                        primary: AppColors.primary,
+                        onPrimary: Colors.white,
+                        surface: AppColors.surface,
+                        onSurface: Colors.white,
+                      ),
+                    ),
+                    child: child!,
+                  );
+                },
+              );
+
+              if (picked != null) {
+                // UI Rule: Maximum 4 months (approx 124 days) selection allowed
+                if (picked.end.difference(picked.start).inDays > 124) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text("Maximum allowed date range is 4 months."),
+                        backgroundColor: AppColors.error,
+                      ),
+                    );
+                  }
+                  return; // Abort update
+                }
+
+                setState(() {
+                  _startDate = picked.start;
+                  _endDate = picked.end;
+                  _streamIdentity = null; // Forces stream to rebuild
+                });
+                _initializeStream();
+              }
+            },
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.primary.withOpacity(0.3)),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.calendar_month_rounded, color: AppColors.primary, size: 16),
+                  SizedBox(width: 8),
+                  Text(
+                    "Filter Dates",
+                    style: TextStyle(color: AppColors.primary, fontSize: 11, fontWeight: FontWeight.w800),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildGroupedList(List<Appointment> appointments) {
     Map<String, List<Appointment>> grouped = {};
 
@@ -259,8 +353,7 @@ class _HistoryViewState extends State<HistoryView> {
       grouped[dateKey]!.add(appt);
     }
 
-    List<String> sortedKeys =
-        grouped.keys.toList()..sort((a, b) => b.compareTo(a));
+    List<String> sortedKeys = grouped.keys.toList()..sort((a, b) => b.compareTo(a));
 
     return ListView.builder(
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
@@ -275,7 +368,7 @@ class _HistoryViewState extends State<HistoryView> {
           children: [
             _buildDateHeader(dateKey),
             ...dayList.map(
-              (appt) => Padding(
+                  (appt) => Padding(
                 padding: const EdgeInsets.only(bottom: 12),
                 child: _HistoryCard(appt: appt, showDetails: widget.isAdmin),
               ),
@@ -292,13 +385,9 @@ class _HistoryViewState extends State<HistoryView> {
     DateTime now = DateTime.now();
     String label;
 
-    if (date.year == now.year &&
-        date.month == now.month &&
-        date.day == now.day) {
+    if (date.year == now.year && date.month == now.month && date.day == now.day) {
       label = "Today";
-    } else if (date.year == now.year &&
-        date.month == now.month &&
-        date.day == now.day - 1) {
+    } else if (date.year == now.year && date.month == now.month && date.day == now.day - 1) {
       label = "Yesterday";
     } else {
       label = DateFormat('MMMM dd, yyyy').format(date);
@@ -348,10 +437,22 @@ class _HistoryViewState extends State<HistoryView> {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(20),
-        child: Text(
-          "Database Index Required. Please check console.\n$error",
-          textAlign: TextAlign.center,
-          style: const TextStyle(color: AppColors.error, fontSize: 12),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.warning_amber_rounded, color: AppColors.error, size: 48),
+            const SizedBox(height: 16),
+            const Text(
+              "Database Index Required",
+              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              "Check your IDE Debug Console and click the Firebase link to build the Composite Index.\n\n$error",
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Colors.white54, fontSize: 12),
+            ),
+          ],
         ),
       ),
     );

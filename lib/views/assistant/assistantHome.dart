@@ -51,14 +51,12 @@ class _AssistantHomeViewState extends State<AssistantHomeView>
             (route) => false,
       );
     }
-  }Future<void> _handleEmergency(
-      BuildContext context,
-      QueueController queue,
-      ) async {
+  }
+
+  Future<void> _handleEmergency(BuildContext context, QueueController queue) async {
     if (queue.selectedClinic == null) return;
     final DateTime now = DateTime.now();
 
-    // 1. Ask the assistant to pick a date
     final DateTime? pickedDate = await showDatePicker(
       context: context,
       initialDate: now,
@@ -77,18 +75,16 @@ class _AssistantHomeViewState extends State<AssistantHomeView>
       ),
     );
 
-    if (pickedDate == null) return; // Action cancelled
+    if (pickedDate == null) return;
     if (!context.mounted) return;
 
     final dateStr = DateFormat('MMM dd, yyyy').format(pickedDate);
     final cleanPicked = DateTime(pickedDate.year, pickedDate.month, pickedDate.day);
 
-    // 2. CHECK STATUS: Is this date already closed?
     bool isAlreadyClosed = queue.selectedClinic!.emergencyClosedDates.any(
             (d) => d.year == cleanPicked.year && d.month == cleanPicked.month && d.day == cleanPicked.day
     );
 
-    // 3. Show dynamic confirmation dialog
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -106,10 +102,7 @@ class _AssistantHomeViewState extends State<AssistantHomeView>
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text(
-              "CANCEL",
-              style: TextStyle(color: Colors.white54),
-            ),
+            child: const Text("CANCEL", style: TextStyle(color: Colors.white54)),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
@@ -125,7 +118,6 @@ class _AssistantHomeViewState extends State<AssistantHomeView>
       ),
     );
 
-    // 4. Execute the chosen action
     if (confirm == true) {
       if (isAlreadyClosed) {
         await queue.reopenClinicForDate(pickedDate);
@@ -151,6 +143,97 @@ class _AssistantHomeViewState extends State<AssistantHomeView>
     }
   }
 
+  // --- NEW: VITALS POPUP WORKFLOW ---
+  Future<void> _showVitalsDialog(BuildContext context, Appointment appt, QueueController queue, {bool moveToActiveAfter = false}) async {
+    final bpCtrl = TextEditingController(text: appt.vitals?['bp'] ?? '');
+    final tempCtrl = TextEditingController(text: appt.vitals?['temp'] ?? '');
+    final weightCtrl = TextEditingController(text: appt.vitals?['weight'] ?? '');
+    final spo2Ctrl = TextEditingController(text: appt.vitals?['spo2'] ?? '');
+
+    await showDialog(
+        context: context,
+        barrierDismissible: !moveToActiveAfter, // Prevent accidental dismissal during move
+        builder: (context) {
+          return AlertDialog(
+            backgroundColor: AppColors.surface,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20), side: BorderSide(color: AppColors.glassWhite)),
+            title: Row(
+              children: [
+                const Icon(Icons.monitor_heart, color: AppColors.primary),
+                const SizedBox(width: 12),
+                Expanded(child: Text("Vitals - ${appt.customerName}", style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold))),
+              ],
+            ),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _buildVitalInput(bpCtrl, "Blood Pressure", "e.g. 120/80 mmHg"),
+                  const SizedBox(height: 12),
+                  _buildVitalInput(tempCtrl, "Temperature", "e.g. 98.6 °F"),
+                  const SizedBox(height: 12),
+                  _buildVitalInput(weightCtrl, "Weight", "e.g. 70 kg"),
+                  const SizedBox(height: 12),
+                  _buildVitalInput(spo2Ctrl, "SpO2", "e.g. 98%"),
+                ],
+              ),
+            ),
+            actions: [
+              if (moveToActiveAfter)
+                TextButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    queue.updateStatus(appt.id, AppointmentStatus.active); // SKIP & proceed to cabin
+                  },
+                  child: const Text("SKIP", style: TextStyle(color: Colors.white54, fontWeight: FontWeight.bold)),
+                )
+              else
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text("CANCEL", style: TextStyle(color: Colors.white54)),
+                ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))
+                ),
+                onPressed: () async {
+                  Map<String, dynamic> data = {};
+                  if (bpCtrl.text.isNotEmpty) data['bp'] = bpCtrl.text.trim();
+                  if (tempCtrl.text.isNotEmpty) data['temp'] = tempCtrl.text.trim();
+                  if (weightCtrl.text.isNotEmpty) data['weight'] = weightCtrl.text.trim();
+                  if (spo2Ctrl.text.isNotEmpty) data['spo2'] = spo2Ctrl.text.trim();
+
+                  await queue.saveVitals(appt.id, data);
+                  if (context.mounted) Navigator.pop(context);
+
+                  if (moveToActiveAfter) {
+                    queue.updateStatus(appt.id, AppointmentStatus.active); // Send to cabin after saving
+                  }
+                },
+                child: Text(moveToActiveAfter ? "SAVE & SEND" : "SAVE VITALS", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              )
+            ],
+          );
+        }
+    );
+  }
+
+  Widget _buildVitalInput(TextEditingController ctrl, String label, String hint) {
+    return TextField(
+      controller: ctrl,
+      style: const TextStyle(color: Colors.white),
+      decoration: InputDecoration(
+        labelText: label,
+        labelStyle: const TextStyle(color: Colors.white54),
+        hintText: hint,
+        hintStyle: const TextStyle(color: Colors.white24),
+        filled: true,
+        fillColor: Colors.white.withOpacity(0.03),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+      ),
+    );
+  }
 
   // --- BUILD METHOD ---
 
@@ -164,7 +247,6 @@ class _AssistantHomeViewState extends State<AssistantHomeView>
       appBar: _buildAppBar(context, queue),
       body: Stack(
         children: [
-          // Background Layer
           Container(color: AppColors.background),
           BackgroundBlur(
             color: AppColors.primary.withOpacity(0.2),
@@ -179,7 +261,6 @@ class _AssistantHomeViewState extends State<AssistantHomeView>
             left: -80,
           ),
 
-          // Content Layer
           SafeArea(
             child:
             !hasClinics
@@ -393,7 +474,6 @@ class _AssistantHomeViewState extends State<AssistantHomeView>
   // --- HEADER & METRICS ---
 
   Widget _buildMetricsHeader(QueueController queue) {
-    // Calculate metrics strictly from history to avoid mismatches
     final completedCount =
         queue.history
             .where((e) => e.status == AppointmentStatus.completed)
@@ -548,12 +628,20 @@ class _AssistantHomeViewState extends State<AssistantHomeView>
         return AppointmentCard(
           appointment: appt,
           isAdmin: true,
+          // --- NEW: Handle standalone Vitals Button Tap ---
+          onVitalsTap: () => _showVitalsDialog(context, appt, queue),
           onStatusNext: () {
             // Intelligent status progression
             if (appt.status == AppointmentStatus.skipped) {
               queue.recallPatient(appt.id);
             } else if (appt.status == AppointmentStatus.waiting) {
-              queue.updateStatus(appt.id, AppointmentStatus.active);
+              // --- SMART INTERCEPTION: Ask for Vitals before sending to active ---
+              final hasVitals = appt.vitals != null && appt.vitals!.isNotEmpty;
+              if (!hasVitals) {
+                _showVitalsDialog(context, appt, queue, moveToActiveAfter: true);
+              } else {
+                queue.updateStatus(appt.id, AppointmentStatus.active);
+              }
             } else if (appt.status == AppointmentStatus.active) {
               queue.updateStatus(appt.id, AppointmentStatus.completed);
             }

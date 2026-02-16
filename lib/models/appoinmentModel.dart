@@ -18,6 +18,7 @@ class Appointment {
   final int tokenNumber;
   AppointmentStatus status;
   DateTime? estimatedTime; // Helper for UI, calculated dynamically in Controller
+  final Map<String, dynamic>? vitals;
 
   Appointment({
     required this.id,
@@ -34,6 +35,7 @@ class Appointment {
     required this.tokenNumber,
     this.status = AppointmentStatus.waiting,
     this.estimatedTime,
+    this.vitals, // --- NEW ---
   });
 
   Map<String, dynamic> toMap() {
@@ -50,6 +52,7 @@ class Appointment {
       'bookingTimestamp': Timestamp.fromDate(bookingTimestamp),
       'tokenNumber': tokenNumber,
       'status': status.name,
+      'vitals': vitals, // --- NEW ---
     };
   }
 
@@ -78,6 +81,7 @@ class Appointment {
             (e) => e.name == map['status'],
         orElse: () => AppointmentStatus.waiting,
       ),
+      vitals: map['vitals'] as Map<String, dynamic>?, // --- NEW ---
     );
   }
 }

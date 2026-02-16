@@ -10,6 +10,7 @@ class AppointmentCard extends StatelessWidget {
   final VoidCallback? onStatusNext; // Handles: Call Next, Recall, Finish
   final VoidCallback? onSkip;       // Handles: Skip
   final VoidCallback? onCancel;     // Handles: Cancel
+  final VoidCallback? onVitalsTap;  // --- NEW: Handles Vitals Popup ---
 
   const AppointmentCard({
     super.key,
@@ -18,6 +19,7 @@ class AppointmentCard extends StatelessWidget {
     this.onStatusNext,
     this.onSkip,
     this.onCancel,
+    this.onVitalsTap,
   });
 
   @override
@@ -28,6 +30,9 @@ class AppointmentCard extends StatelessWidget {
     final bool isActive = appointment.status == AppointmentStatus.active;
     final bool isSkipped = appointment.status == AppointmentStatus.skipped;
     final bool isWaiting = appointment.status == AppointmentStatus.waiting;
+
+    // --- NEW: Determine Vitals State ---
+    final bool hasVitals = appointment.vitals != null && appointment.vitals!.isNotEmpty;
 
     // --- 2. Determine Theme Color ---
     final Color accentColor = _getAccentColor(appointment.status);
@@ -168,49 +173,62 @@ class AppointmentCard extends StatelessWidget {
                           ),
 
                           // --- ADMIN QUICK ACTIONS (MOVED HERE) ---
-                          // Moved below the text to prevent horizontal overflow
                           if (isAdmin && !isDone && !isCancelled) ...[
                             const SizedBox(height: 12),
-                            Row(
-                              children: [
-                                // 1. CANCEL BUTTON
-                                if (onCancel != null && (isWaiting || isSkipped)) ...[
-                                  _buildActionButton(
-                                    icon: Icons.close_rounded,
-                                    color: AppColors.error,
-                                    onTap: onCancel,
-                                    tooltip: "Cancel Appointment",
-                                  ),
-                                  const SizedBox(width: 8),
-                                ],
+                            SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              child: Row(
+                                children: [
+                                  // --- NEW: 0. VITALS BUTTON ---
+                                  if (onVitalsTap != null) ...[
+                                    _buildActionButton(
+                                      icon: hasVitals ? Icons.monitor_heart : Icons.monitor_heart_outlined,
+                                      color: hasVitals ? AppColors.success : Colors.white70,
+                                      onTap: onVitalsTap,
+                                      tooltip: hasVitals ? "Edit Vitals" : "Add Vitals",
+                                    ),
+                                    const SizedBox(width: 8),
+                                  ],
 
-                                // 2. SKIP BUTTON
-                                if (onSkip != null && isWaiting) ...[
-                                  _buildActionButton(
-                                    icon: Icons.u_turn_right_rounded,
-                                    color: Colors.amberAccent,
-                                    onTap: onSkip,
-                                    tooltip: "Skip Patient",
-                                  ),
-                                  const SizedBox(width: 8),
-                                ],
+                                  // 1. CANCEL BUTTON
+                                  if (onCancel != null && (isWaiting || isSkipped)) ...[
+                                    _buildActionButton(
+                                      icon: Icons.close_rounded,
+                                      color: AppColors.error,
+                                      onTap: onCancel,
+                                      tooltip: "Cancel Appointment",
+                                    ),
+                                    const SizedBox(width: 8),
+                                  ],
 
-                                // 3. MAIN ACTION
-                                if (onStatusNext != null)
-                                  _buildActionButton(
-                                    icon: isSkipped
-                                        ? Icons.restore_rounded
-                                        : (isActive
-                                        ? Icons.check_rounded
-                                        : Icons.play_arrow_rounded),
-                                    color: isSkipped
-                                        ? Colors.blueAccent
-                                        : (isActive ? AppColors.success : AppColors.primary),
-                                    isLarge: true,
-                                    onTap: onStatusNext,
-                                    tooltip: isActive ? "Finish" : "Call Next",
-                                  ),
-                              ],
+                                  // 2. SKIP BUTTON
+                                  if (onSkip != null && isWaiting) ...[
+                                    _buildActionButton(
+                                      icon: Icons.u_turn_right_rounded,
+                                      color: Colors.amberAccent,
+                                      onTap: onSkip,
+                                      tooltip: "Skip Patient",
+                                    ),
+                                    const SizedBox(width: 8),
+                                  ],
+
+                                  // 3. MAIN ACTION
+                                  if (onStatusNext != null)
+                                    _buildActionButton(
+                                      icon: isSkipped
+                                          ? Icons.restore_rounded
+                                          : (isActive
+                                          ? Icons.check_rounded
+                                          : Icons.play_arrow_rounded),
+                                      color: isSkipped
+                                          ? Colors.blueAccent
+                                          : (isActive ? AppColors.success : AppColors.primary),
+                                      isLarge: true,
+                                      onTap: onStatusNext,
+                                      tooltip: isActive ? "Finish" : "Send to Cabin",
+                                    ),
+                                ],
+                              ),
                             ),
                           ],
                         ],
@@ -256,7 +274,7 @@ class AppointmentCard extends StatelessWidget {
       case AppointmentStatus.cancelled:
         return AppColors.error;
       case AppointmentStatus.completed:
-        return Colors.white24; // Muted color for history
+        return Colors.white24;
       default:
         return AppColors.primary;
     }

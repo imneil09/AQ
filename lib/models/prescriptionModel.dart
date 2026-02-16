@@ -9,6 +9,7 @@ class Prescription {
   final String notes;
   final String diagnosis;
   final DateTime timestamp;
+  final Map<String, dynamic>? vitals; // --- NEW: Store vitals permanently ---
 
   Prescription({
     required this.id,
@@ -19,6 +20,7 @@ class Prescription {
     required this.notes,
     required this.diagnosis,
     required this.timestamp,
+    this.vitals, // --- NEW ---
   });
 
   Map<String, dynamic> toMap() {
@@ -30,6 +32,7 @@ class Prescription {
       'notes': notes,
       'diagnosis': diagnosis,
       'timestamp': Timestamp.fromDate(timestamp),
+      'vitals': vitals, // --- NEW ---
     };
   }
 
@@ -43,6 +46,7 @@ class Prescription {
       notes: map['notes'] ?? '',
       diagnosis: map['diagnosis'] ?? '',
       timestamp: (map['timestamp'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      vitals: map['vitals'] as Map<String, dynamic>?, // --- NEW ---
     );
   }
 }
