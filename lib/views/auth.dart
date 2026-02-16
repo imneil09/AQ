@@ -308,7 +308,7 @@ class _AuthViewState extends State<AuthView> {
                     right: 24,
                   ),
                   child: Text(
-                    "Designed & Developed by Sagar Bhowmik • Proudly Made in India 🇮🇳",
+                    "Designed & Developed by Rashi • Proudly Made in India 🇮🇳",
                     style: TextStyle(
                       color: Colors.white.withOpacity(0.2),
                       fontSize: 10,

@@ -11,7 +11,8 @@ class Appointment {
   final String customerName;
   final String phoneNumber;
   final String serviceType;
-  final String type; // "live", "walk-in", or "prebook"
+  final String type;
+  final String bookedBy;
   final DateTime appointmentDate;
   final DateTime bookingTimestamp;
   final int tokenNumber;
@@ -27,6 +28,7 @@ class Appointment {
     required this.phoneNumber,
     required this.serviceType,
     required this.type,
+    required this.bookedBy,
     required this.appointmentDate,
     required this.bookingTimestamp,
     required this.tokenNumber,
@@ -43,6 +45,7 @@ class Appointment {
       'phoneNumber': phoneNumber,
       'serviceType': serviceType,
       'type': type,
+      'bookedBy': bookedBy,
       'appointmentDate': Timestamp.fromDate(appointmentDate),
       'bookingTimestamp': Timestamp.fromDate(bookingTimestamp),
       'tokenNumber': tokenNumber,
@@ -67,6 +70,7 @@ class Appointment {
       phoneNumber: map['phoneNumber'] ?? '',
       serviceType: map['serviceType'] ?? 'General',
       type: map['type'] ?? 'live',
+      bookedBy: map['bookedBy'] ?? 'app', // ADDED THIS
       appointmentDate: toDateTime(map['appointmentDate']),
       bookingTimestamp: toDateTime(map['bookingTimestamp']),
       tokenNumber: (map['tokenNumber'] is int) ? map['tokenNumber'] : 0,

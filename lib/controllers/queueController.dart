@@ -188,6 +188,7 @@ class QueueController extends ChangeNotifier {
         phoneNumber: appt.phoneNumber,
         serviceType: appt.serviceType,
         type: appt.type,
+        bookedBy: appt.bookedBy,
         appointmentDate: appt.appointmentDate,
         bookingTimestamp: appt.bookingTimestamp,
         tokenNumber: appt.tokenNumber,
@@ -335,7 +336,7 @@ class QueueController extends ChangeNotifier {
           'customerName': name,
           'phoneNumber': phone,
           'serviceType': service,
-          'type': isToday ? 'walk-in' : 'prebook',
+          'type': isToday ? 'walk-in' : 'scheduled',
           'bookedBy': isStaff ? 'desk' : 'app', // Track source
           'appointmentDate': Timestamp.fromDate(cleanDate),
           'bookingTimestamp': FieldValue.serverTimestamp(),

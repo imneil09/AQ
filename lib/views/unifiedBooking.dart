@@ -200,6 +200,7 @@ class _UnifiedBookingViewState extends State<UnifiedBookingView> {
           date: _selectedDate,
           clinicId: _selectedClinic!.id,
           patientId: targetPatientId,
+          isStaff: true,
         );
       } else {
         // --- BACKEND: PATIENT LOGIC ---

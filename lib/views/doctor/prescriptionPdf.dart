@@ -335,7 +335,7 @@ class PrescriptionPDF {
 
         // Bottom Branding
         pw.Center(
-          child: pw.Text("Powered by Universal Clinic App", style: _smallStyle.copyWith(color: PdfColors.grey400)),
+          child: pw.Text("Powered by Rashi", style: _smallStyle.copyWith(color: PdfColors.grey400)),
         ),
       ],
     );
