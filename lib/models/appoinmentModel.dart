@@ -69,7 +69,7 @@ class Appointment {
       customerName: map['customerName'] ?? 'Unknown',
       phoneNumber: map['phoneNumber'] ?? '',
       serviceType: map['serviceType'] ?? 'General',
-      type: map['type'] ?? 'live',
+      type: map['type'] ?? 'same_day',
       bookedBy: map['bookedBy'] ?? 'app', // ADDED THIS
       appointmentDate: toDateTime(map['appointmentDate']),
       bookingTimestamp: toDateTime(map['bookingTimestamp']),

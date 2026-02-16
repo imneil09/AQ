@@ -274,7 +274,7 @@ class _ScheduledAppointmentsViewState extends State<ScheduledAppointmentsView> {
   }
 
   Widget _buildScheduledCard(Appointment appt) {
-    final bool isAppBooking = appt.type == 'app';
+    final bool isAppBooking = appt.bookedBy == 'app';
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
