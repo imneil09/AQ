@@ -34,12 +34,13 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyAiNAGIFURSkqbSj8-K4AW9yT3PM2pwuCk',
-    appId: '1:1074232279880:web:7e450c575004cb4934e97d',
+    apiKey: 'AIzaSyBd3jlsluOHa9O0CWFCT92eClnpqf8nv90',
+    appId: '1:1074232279880:web:33dfe651d86a72a634e97d',
     messagingSenderId: '1074232279880',
     projectId: 'appqueue-fdef7',
     authDomain: 'appqueue-fdef7.firebaseapp.com',
     storageBucket: 'appqueue-fdef7.firebasestorage.app',
+    measurementId: 'G-ZLNKYKT663',
   );
 
   static const FirebaseOptions android = FirebaseOptions(
@@ -51,12 +52,13 @@ class DefaultFirebaseOptions {
   );
 
   static const FirebaseOptions windows = FirebaseOptions(
-    apiKey: 'AIzaSyAiNAGIFURSkqbSj8-K4AW9yT3PM2pwuCk',
-    appId: '1:1074232279880:web:7e450c575004cb4934e97d',
+    apiKey: 'AIzaSyBd3jlsluOHa9O0CWFCT92eClnpqf8nv90',
+    appId: '1:1074232279880:web:33dfe651d86a72a634e97d',
     messagingSenderId: '1074232279880',
     projectId: 'appqueue-fdef7',
     authDomain: 'appqueue-fdef7.firebaseapp.com',
     storageBucket: 'appqueue-fdef7.firebasestorage.app',
+    measurementId: 'G-ZLNKYKT663',
   );
 
   // ✅ ADDED LINUX CONFIGURATION (Same as Windows/Web)

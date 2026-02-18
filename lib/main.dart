@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
-// ignore: unused_import
-
 // Imports
 import 'firebase_options.dart'; // This connects to the file you just created
 import 'controllers/queueController.dart';
