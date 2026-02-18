@@ -7,7 +7,9 @@ import 'views/auth.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  if (kIsWeb) {
+  if (kIsWeb ||
+      defaultTargetPlatform == TargetPlatform.windows ||
+      defaultTargetPlatform == TargetPlatform.linux) {
     await Firebase.initializeApp(
       options: const FirebaseOptions(
         apiKey: "AIzaSyAiNAGIFURSkqbSj8-K4AW9yT3PM2pwuCk",
