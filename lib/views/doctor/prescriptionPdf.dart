@@ -246,14 +246,14 @@ class PrescriptionPDF {
           ),
           pw.SizedBox(height: 12),
 
-          // Structured Medicine List
+          // FIX: Added .toList() explicitly here to force the PDF renderer to draw the rows
           ...medicines.asMap().entries.map((entry) {
             int index = entry.key;
             Map<String, String> med = entry.value;
             // Alternating background colors for readability
             final bgColor = index % 2 == 0 ? PdfColors.white : PdfColors.grey50;
             return _buildMedicineRow(med, index + 1, bgColor);
-          }),
+          }).toList(),
 
           pw.SizedBox(height: 30),
           if (instructions.isNotEmpty) _buildSection("INSTRUCTIONS / DIET", instructions),
