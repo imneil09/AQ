@@ -85,23 +85,26 @@ class _AuthViewState extends State<AuthView> {
   }
 
   Future<void> _signInWithEmail() async {
-    if (_emailController.text.isEmpty || _passwordController.text.isEmpty)
+    if (_emailController.text.isEmpty || _passwordController.text.isEmpty) {
       return;
+    }
 
     setState(() => _isLoading = true);
+
     try {
       final cred = await _auth.signInWithEmailAndPassword(
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
       );
+
       if (mounted && cred.user != null) {
-        await _handleStaffSuccess(cred.user!); // Create staff doc if missing
+        await _handleStaffSuccess(cred.user!); 
         _redirectUser(cred.user!);
       }
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text("Login Failed: ${e.toString()}")));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Login Failed: ${e.toString()}"))
+      );
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -130,10 +133,10 @@ class _AuthViewState extends State<AuthView> {
       },
       codeSent:
           (id, _) => setState(() {
-        _verificationId = id;
-        _isOtpSent = true;
-        _isLoading = false;
-      }),
+            _verificationId = id;
+            _isOtpSent = true;
+            _isLoading = false;
+          }),
       codeAutoRetrievalTimeout: (_) {},
     );
   }
@@ -167,11 +170,12 @@ class _AuthViewState extends State<AuthView> {
       final phone = user.phoneNumber;
 
       // 1. Look for an existing Shadow Account with this phone number
-      final shadowQuery = await FirebaseFirestore.instance
-          .collection('users')
-          .where('phoneNumber', isEqualTo: phone)
-          .where('isShadowAccount', isEqualTo: true)
-          .get();
+      final shadowQuery =
+          await FirebaseFirestore.instance
+              .collection('users')
+              .where('phoneNumber', isEqualTo: phone)
+              .where('isShadowAccount', isEqualTo: true)
+              .get();
 
       if (shadowQuery.docs.isNotEmpty) {
         // --- SHADOW ACCOUNT FOUND! MERGE DATA ---
@@ -183,21 +187,28 @@ class _AuthViewState extends State<AuthView> {
         final batch = FirebaseFirestore.instance.batch();
 
         // A. Find all old appointments linked to the Shadow ID and update them to the real Auth ID
-        final appointmentsQuery = await FirebaseFirestore.instance
-            .collection('appointments') // Ensure this matches your appointments collection name
-            .where('patientId', isEqualTo: shadowId)
-            .get();
+        final appointmentsQuery =
+            await FirebaseFirestore.instance
+                .collection(
+                  'appointments',
+                ) // Ensure this matches your appointments collection name
+                .where('patientId', isEqualTo: shadowId)
+                .get();
 
         for (var doc in appointmentsQuery.docs) {
           batch.update(doc.reference, {'patientId': newUid});
         }
 
         // B. Create the new Real User Document using the Shadow Account's name
-        final newDocRef = FirebaseFirestore.instance.collection('users').doc(newUid);
+        final newDocRef = FirebaseFirestore.instance
+            .collection('users')
+            .doc(newUid);
         batch.set(newDocRef, {
           'uid': newUid,
           'phoneNumber': phone,
-          'name': shadowData['name'] ?? 'Guest Patient', // Keep the name the assistant typed!
+          'name':
+              shadowData['name'] ??
+              'Guest Patient', // Keep the name the assistant typed!
           'role': 'patient',
           'isShadowAccount': false, // No longer a shadow account!
           'createdAt': shadowData['createdAt'] ?? FieldValue.serverTimestamp(),
@@ -208,10 +219,11 @@ class _AuthViewState extends State<AuthView> {
 
         // Commit the transfer
         await batch.commit();
-
       } else {
         // --- NO SHADOW ACCOUNT FOUND (NORMAL LOGIN/SIGNUP) ---
-        final userRef = FirebaseFirestore.instance.collection('users').doc(newUid);
+        final userRef = FirebaseFirestore.instance
+            .collection('users')
+            .doc(newUid);
         await userRef.set({
           'uid': newUid,
           'phoneNumber': phone,
@@ -235,7 +247,9 @@ class _AuthViewState extends State<AuthView> {
   /// FIRESTORE INTEGRATION (STAFF)
   /// Ensures the Staff (Doctor/Assistant) has a valid document in the 'users' collection
   Future<void> _handleStaffSuccess(User user) async {
-    final userRef = FirebaseFirestore.instance.collection('users').doc(user.uid);
+    final userRef = FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid);
     final doc = await userRef.get();
 
     // Only create the document if it wasn't manually created in Firestore yet
@@ -293,9 +307,9 @@ class _AuthViewState extends State<AuthView> {
                             vertical: 40,
                           ),
                           child:
-                          showDoctorUI
-                              ? _buildDesktopContent()
-                              : _buildMobileContent(),
+                              showDoctorUI
+                                  ? _buildDesktopContent()
+                                  : _buildMobileContent(),
                         ),
                       ),
                     ),
@@ -385,16 +399,16 @@ class _AuthViewState extends State<AuthView> {
             ),
             onPressed: _isLoading ? null : _signInWithEmail,
             child:
-            _isLoading
-                ? const SizedBox(
-              height: 20,
-              width: 20,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                color: Colors.white,
-              ),
-            )
-                : const Text("ACCESS DASHBOARD"),
+                _isLoading
+                    ? const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                    : const Text("ACCESS DASHBOARD"),
           ),
         ),
       ],
@@ -534,26 +548,26 @@ class _AuthViewState extends State<AuthView> {
               elevation: 0,
             ),
             onPressed:
-            _isLoading
-                ? null
-                : (_isOtpSent ? _signInWithOTP : _verifyPhone),
+                _isLoading
+                    ? null
+                    : (_isOtpSent ? _signInWithOTP : _verifyPhone),
             child:
-            _isLoading
-                ? const SizedBox(
-              height: 24,
-              width: 24,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                color: Colors.white,
-              ),
-            )
-                : Text(
-              _isOtpSent ? "VERIFY" : "GET OTP",
-              style: const TextStyle(
-                fontWeight: FontWeight.w900,
-                letterSpacing: 1,
-              ),
-            ),
+                _isLoading
+                    ? const SizedBox(
+                      height: 24,
+                      width: 24,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                    : Text(
+                      _isOtpSent ? "VERIFY" : "GET OTP",
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 1,
+                      ),
+                    ),
           ),
         ),
       ],
@@ -561,11 +575,11 @@ class _AuthViewState extends State<AuthView> {
   }
 
   Widget _glassTextField(
-      TextEditingController ctrl,
-      String label,
-      bool obscure, {
-        String? prefix,
-      }) {
+    TextEditingController ctrl,
+    String label,
+    bool obscure, {
+    String? prefix,
+  }) {
     return Container(
       decoration: BoxDecoration(
         color: AppColors.glassWhite,
@@ -604,55 +618,57 @@ class _AuthViewState extends State<AuthView> {
       context: context,
       builder:
           (_) => BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-        child: AlertDialog(
-          backgroundColor: AppColors.surface.withOpacity(0.9),
-          title: const Text(
-            "Access",
-            style: TextStyle(color: Colors.white),
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _glassTextField(eCtrl, "Email", false),
-              const SizedBox(height: 10),
-              _glassTextField(pCtrl, "Password", true),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text(
-                "CANCEL",
-                style: TextStyle(color: Colors.white54),
+            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+            child: AlertDialog(
+              backgroundColor: AppColors.surface.withOpacity(0.9),
+              title: const Text(
+                "Access",
+                style: TextStyle(color: Colors.white),
               ),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _glassTextField(eCtrl, "Email", false),
+                  const SizedBox(height: 10),
+                  _glassTextField(pCtrl, "Password", true),
+                ],
               ),
-              onPressed: () async {
-                try {
-                  final cred = await _auth.signInWithEmailAndPassword(
-                    email: eCtrl.text.trim(),
-                    password: pCtrl.text.trim(),
-                  );
-                  if (mounted && cred.user != null) {
-                    Navigator.pop(context);
-                    await _handleStaffSuccess(cred.user!); // Create staff doc if missing
-                    _redirectUser(cred.user!);
-                  }
-                } catch (e) {
-                  ScaffoldMessenger.of(
-                    context,
-                  ).showSnackBar(SnackBar(content: Text(e.toString())));
-                }
-              },
-              child: const Text("GET IN"),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text(
+                    "CANCEL",
+                    style: TextStyle(color: Colors.white54),
+                  ),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                  ),
+                  onPressed: () async {
+                    try {
+                      final cred = await _auth.signInWithEmailAndPassword(
+                        email: eCtrl.text.trim(),
+                        password: pCtrl.text.trim(),
+                      );
+                      if (mounted && cred.user != null) {
+                        Navigator.pop(context);
+                        await _handleStaffSuccess(
+                          cred.user!,
+                        ); // Create staff doc if missing
+                        _redirectUser(cred.user!);
+                      }
+                    } catch (e) {
+                      ScaffoldMessenger.of(
+                        context,
+                      ).showSnackBar(SnackBar(content: Text(e.toString())));
+                    }
+                  },
+                  child: const Text("GET IN"),
+                ),
+              ],
             ),
-          ],
-        ),
-      ),
+          ),
     );
   }
 }
