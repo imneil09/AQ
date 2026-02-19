@@ -130,6 +130,7 @@ Next Visit: ${_nextVisitDate != null ? DateFormat('dd MMM yyyy').format(_nextVis
       final queue = Provider.of<QueueController>(context, listen: false);
       await queue.completeAppointment(
         appointmentId: widget.patient.id,
+        // Fallback to phone number if patientId is null (e.g. walk-ins)
         patientId: widget.patient.patientId ?? widget.patient.phoneNumber,
         medicines: formattedMedicines,
         notes: fullNotes,
@@ -198,7 +199,10 @@ Next Visit: ${_nextVisitDate != null ? DateFormat('dd MMM yyyy').format(_nextVis
               CircleAvatar(
                 backgroundColor: AppColors.primary,
                 radius: 24,
-                child: Text(widget.patient.customerName[0], style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                child: Text(
+                  widget.patient.customerName.isNotEmpty ? widget.patient.customerName[0] : "?", 
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)
+                ),
               ),
               const SizedBox(width: 16),
               Column(
@@ -455,7 +459,8 @@ Next Visit: ${_nextVisitDate != null ? DateFormat('dd MMM yyyy').format(_nextVis
 
   // --- TAB 2: HISTORY VIEW (WIRED) ---
   Widget _buildHistoryView() {
-    final queryId = widget.patient.patientId ?? widget.patient.phoneNumber;
+    // Ensures history loads correctly even for Walk-in appointments without formal IDs
+    final queryId = widget.patient.patientId;
 
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
