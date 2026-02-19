@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:cloud_firestore/cloud_firestore.dart'; // <-- ADDED THIS IMPORT
+
 // Imports
-import 'firebase_options.dart'; // This connects to the file you just created
+import 'firebase_options.dart'; 
 import 'controllers/queueController.dart';
 import 'views/auth.dart';
 import 'widgets/appColors.dart';
@@ -14,6 +16,15 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+
+  // <-- ADDED THIS BLOCK -->
+  // Try to clear the offline cache on startup to prevent Windows crashes
+  try {
+    await FirebaseFirestore.instance.clearPersistence();
+  } catch (e) {
+    print('Could not clear Firestore cache: $e');
+  }
+  // <---------------------->
 
   runApp(const MyApp());
 }
