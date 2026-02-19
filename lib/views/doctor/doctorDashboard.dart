@@ -171,7 +171,8 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
                   width: targetSidebarWidth,
                   child: LayoutBuilder(
                     builder: (context, box) {
-                      final bool effectiveCollapsed = box.maxWidth < 180;
+                      // Fix: increased threshold to 220px to prevent visual squishing before turning into a circle
+                      final bool effectiveCollapsed = box.maxWidth < 220;
                       return _buildLiveQueueSidebar(queue, activePatient, effectiveCollapsed);
                     },
                   ),
@@ -217,14 +218,64 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
             child: const Icon(Icons.monitor_heart, color: AppColors.primary),
           ),
           const SizedBox(width: 16),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text("Dr. Shankar Deb Roy",
-                  style: TextStyle(fontWeight: FontWeight.w900, fontSize: 20, color: Colors.white)),
-              Text(queue.selectedClinic?.name ?? "Live Dashboard",
-                  style: TextStyle(fontSize: 12, color: Colors.white.withOpacity(0.4), letterSpacing: 1.2)),
-            ],
+          // Fix: Expanded prevents the text rendering overflow
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Text(
+                  "Dr. Shankar Deb Roy",
+                  style: TextStyle(fontWeight: FontWeight.w900, fontSize: 20, color: Colors.white),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
+                ),
+                // Clinic Toggle Dropdown
+                if (queue.clinics.isNotEmpty)
+                  SizedBox(
+                    height: 30, // Keeps the dropdown footprint compact
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<String>(
+                        value: queue.selectedClinic?.id,
+                        dropdownColor: AppColors.surface,
+                        isExpanded: false,
+                        icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Colors.white54, size: 20),
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.white.withOpacity(0.7),
+                          letterSpacing: 1.2,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        items: queue.clinics.map((clinic) {
+                          return DropdownMenuItem<String>(
+                            value: clinic.id,
+                            child: Container(
+                              constraints: const BoxConstraints(maxWidth: 200), // Ensures long names don't break layout
+                              child: Text(
+                                clinic.name,
+                                overflow: TextOverflow.ellipsis,
+                                maxLines: 1,
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                        onChanged: (clinicId) {
+                          if (clinicId != null) {
+                            final selected = queue.clinics.firstWhere((c) => c.id == clinicId);
+                            queue.selectClinic(selected); 
+                          }
+                        },
+                      ),
+                    ),
+                  )
+                else
+                  Text(
+                    "Live Dashboard",
+                    style: TextStyle(fontSize: 12, color: Colors.white.withOpacity(0.4), letterSpacing: 1.2),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+              ],
+            ),
           ),
         ],
       ),
@@ -248,6 +299,7 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
       duration: const Duration(milliseconds: 300),
       width: _isSearching ? 300 : 45,
       height: 45,
+      clipBehavior: Clip.hardEdge,
       decoration: BoxDecoration(
         color: AppColors.glassWhite,
         borderRadius: BorderRadius.circular(12),
@@ -343,7 +395,7 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
     );
   }
 
-  // --- REFACTORED: Sidebar Cards Now Have Vitals Buttons ---
+  // --- REFACTORED: Safe Render Content depending on isCollapsed state ---
   Widget _buildQueueCard(Appointment appt, bool isActiveList, bool isCollapsed, QueueController queue, {bool isSelected = false}) {
     Color cardColor;
     if (isActiveList) {
@@ -354,72 +406,83 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
 
     final hasVitals = appt.vitals != null && appt.vitals!.isNotEmpty;
 
+    // Fix: Instead of letting the Row overflow, we switch the whole inner structure out for a Center widget
+    Widget cardContent = isCollapsed 
+        ? Center(
+            child: CircleAvatar(
+              backgroundColor: isActiveList ? Colors.white24 : AppColors.primary.withOpacity(0.2),
+              radius: 16,
+              child: Text("${appt.tokenNumber}",
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
+            ),
+          )
+        : Row(
+            mainAxisAlignment: MainAxisAlignment.start,
+            children: [
+              CircleAvatar(
+                backgroundColor: isActiveList ? Colors.white24 : AppColors.primary.withOpacity(0.2),
+                radius: 20,
+                child: Text("${appt.tokenNumber}",
+                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(appt.customerName, maxLines: 1, overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+                    Text(isActiveList ? "In Cabin" : appt.serviceType, maxLines: 1, overflow: TextOverflow.ellipsis,
+                        style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 12)),
+                  ],
+                ),
+              ),
+
+              // 1. Vitals Button
+              InkWell(
+                onTap: () => _showVitalsDialog(context, appt, queue),
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                      color: hasVitals ? AppColors.success.withOpacity(0.15) : Colors.white10,
+                      borderRadius: BorderRadius.circular(8)
+                  ),
+                  child: Icon(hasVitals ? Icons.monitor_heart : Icons.monitor_heart_outlined,
+                      size: 18, color: hasVitals ? AppColors.success : Colors.white54),
+                ),
+              ),
+
+              // 2. Direct "Move to Cabin" Button (Only for Waiting List)
+              if (!isActiveList) ...[
+                const SizedBox(width: 8),
+                InkWell(
+                  onTap: () => _handleMoveToCabin(context, appt, queue),
+                  borderRadius: BorderRadius.circular(8),
+                  child: Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                        color: AppColors.primary.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(8)
+                    ),
+                    child: const Icon(Icons.arrow_forward_ios_rounded, size: 18, color: AppColors.primary),
+                  ),
+                ),
+              ]
+            ],
+          );
+
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
       margin: const EdgeInsets.only(bottom: 12),
       padding: EdgeInsets.all(isCollapsed ? 12 : 16),
+      clipBehavior: Clip.hardEdge, // Hide overflow visual spillage during the animation
       decoration: BoxDecoration(
         color: cardColor,
         borderRadius: BorderRadius.circular(16),
         border: isSelected ? Border.all(color: AppColors.success, width: 2) : null,
       ),
-      child: Row(
-        mainAxisAlignment: isCollapsed ? MainAxisAlignment.center : MainAxisAlignment.start,
-        children: [
-          CircleAvatar(
-            backgroundColor: isActiveList ? Colors.white24 : AppColors.primary.withOpacity(0.2),
-            radius: isCollapsed ? 16 : 20,
-            child: Text("${appt.tokenNumber}",
-                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: isCollapsed ? 12 : 14)),
-          ),
-          if (!isCollapsed) ...[
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(appt.customerName, maxLines: 1, overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
-                  Text(isActiveList ? "In Cabin" : appt.serviceType, maxLines: 1, overflow: TextOverflow.ellipsis,
-                      style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 12)),
-                ],
-              ),
-            ),
-
-            // 1. Vitals Button
-            InkWell(
-              onTap: () => _showVitalsDialog(context, appt, queue),
-              borderRadius: BorderRadius.circular(8),
-              child: Container(
-                padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                    color: hasVitals ? AppColors.success.withOpacity(0.15) : Colors.white10,
-                    borderRadius: BorderRadius.circular(8)
-                ),
-                child: Icon(hasVitals ? Icons.monitor_heart : Icons.monitor_heart_outlined,
-                    size: 18, color: hasVitals ? AppColors.success : Colors.white54),
-              ),
-            ),
-
-            // 2. Direct "Move to Cabin" Button (Only for Waiting List)
-            if (!isActiveList) ...[
-              const SizedBox(width: 8),
-              InkWell(
-                onTap: () => _handleMoveToCabin(context, appt, queue),
-                borderRadius: BorderRadius.circular(8),
-                child: Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                      color: AppColors.primary.withOpacity(0.15),
-                      borderRadius: BorderRadius.circular(8)
-                  ),
-                  child: const Icon(Icons.arrow_forward_ios_rounded, size: 18, color: AppColors.primary),
-                ),
-              ),
-            ]
-          ],
-        ],
-      ),
+      child: cardContent,
     );
   }
 
